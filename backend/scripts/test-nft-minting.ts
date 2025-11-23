@@ -32,7 +32,7 @@ async function testNFTMinting() {
     logger.info('Signer initialized', { address: ownerAddress });
     
     // Initialize NFT service
-    const packageId = process.env.CAPSULE_PACKAGE_ID || '0x3e1c76f3927a1f4ffeb490e09dfb35e6076ccb067babca3df12e3485e357814b';
+    const packageId = process.env.CAPSULE_PACKAGE_ID || '0x267d1b63db92e7a5502b334cd353cea7a5d40c9ed779dee4fe7211f37eb9f4b4';
     const network = (process.env.WALRUS_NETWORK as 'testnet' | 'devnet' | 'mainnet') || 'testnet';
     
     const nftService = new NFTService({

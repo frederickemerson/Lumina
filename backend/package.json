@@ -17,7 +17,12 @@
     "e2e:full": "ts-node --project tsconfig.json scripts/e2eFullWorkflowTest.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:timed-nft": "ts-node --project tsconfig.json scripts/test-timed-nft-unlock.ts",
+    "test:timed-nft-e2e": "ts-node --project tsconfig.json scripts/test-timed-nft-e2e.ts",
+    "verify:nft-display": "ts-node --project tsconfig.json scripts/verify-nft-display.ts",
+    "test:nft-display": "ts-node --project tsconfig.json scripts/test-nft-display.ts",
+    "deploy:walrus-site": "ts-node --project tsconfig.json ../scripts/deploy-walrus-site.ts"
   },
   "keywords": [
     "lumina",

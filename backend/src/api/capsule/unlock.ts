@@ -49,7 +49,7 @@ const evidenceService = new EvidenceService({
   walrusSigner,
 });
 
-const CAPSULE_PACKAGE_ID = process.env.CAPSULE_PACKAGE_ID || '0x6d0be913760c1606a9c390990a3a07bed24235d728f0fc6cacf1dca792d9a5d0';
+const CAPSULE_PACKAGE_ID = process.env.CAPSULE_PACKAGE_ID || '0x267d1b63db92e7a5502b334cd353cea7a5d40c9ed779dee4fe7211f37eb9f4b4';
 const nftService = new NFTService({
   network: (process.env.WALRUS_NETWORK as 'testnet' | 'devnet' | 'mainnet') || 'testnet',
   packageId: CAPSULE_PACKAGE_ID,
@@ -59,8 +59,7 @@ const policyService = new PolicyService({
   network: (process.env.WALRUS_NETWORK as 'testnet' | 'devnet' | 'mainnet') || 'testnet',
   signer: walrusSigner,
 });
-const zkOriginProofService = new ZKOriginProofService({
-});
+const zkOriginProofService = new ZKOriginProofService();
 const provenanceService = new ProvenanceService();
 
 export function createUnlockRouter(): Router {

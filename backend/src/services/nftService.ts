@@ -30,7 +30,7 @@ class NFTService {
   constructor(config: NFTConfig = {}) {
     const fullnodeUrl = process.env.SUI_FULLNODE_URL || 'https://fullnode.testnet.sui.io:443';
     this.suiClient = new SuiClient({ url: fullnodeUrl });
-    this.packageId = config.packageId || process.env.CAPSULE_NFT_PACKAGE_ID || process.env.CAPSULE_PACKAGE_ID || '0x6d0be913760c1606a9c390990a3a07bed24235d728f0fc6cacf1dca792d9a5d0';
+    this.packageId = config.packageId || process.env.CAPSULE_NFT_PACKAGE_ID || process.env.CAPSULE_PACKAGE_ID || '0x267d1b63db92e7a5502b334cd353cea7a5d40c9ed779dee4fe7211f37eb9f4b4';
 
     // Initialize signer if provided
     if (config.signer) {
@@ -59,6 +59,8 @@ class NFTService {
    * @param mediaBlobId - Picture/video blob ID (required)
    * @param message - User message (required)
    * @param voiceBlobId - Voice recording blob ID (optional, empty string if none)
+   * @param soulbound - Whether NFT is soulbound (not used in current implementation)
+   * @param unlockAt - Timestamp when NFT unlocks (0 = no time lock, unlocked immediately)
    * @param signer - Optional signer (uses service signer if not provided)
    */
   async mintNFT(
@@ -68,6 +70,7 @@ class NFTService {
     message: string,
     voiceBlobId: string = '',
     soulbound: boolean = false,
+    unlockAt: number = 0,
     signer?: Ed25519Keypair
   ): Promise<MintNFTResult> {
     try {
@@ -82,7 +85,8 @@ class NFTService {
         mediaBlobId, 
         messageLength: message.length,
         hasVoice: !!voiceBlobId,
-        soulbound
+        soulbound,
+        unlockAt: unlockAt > 0 ? new Date(unlockAt).toISOString() : 'immediate',
       });
 
       // Convert strings to bytes for Move
@@ -90,16 +94,6 @@ class NFTService {
       const messageBytes = new TextEncoder().encode(message);
       const voiceBlobBytes = voiceBlobId ? new TextEncoder().encode(voiceBlobId) : new Uint8Array(0);
 
-      // Build transaction to mint NFT
-      const tx = new Transaction();
-      
-      // Set the sender (required for transaction building)
-      tx.setSender(effectiveSigner.toSuiAddress());
-      
-      // Set gas budget explicitly (10 million MIST = 0.01 SUI)
-      // This bypasses auto-estimation and ensures sufficient gas for NFT minting
-      tx.setGasBudget(10000000n);
-      
       // Convert capsuleId string to bytes for Move
       // If it's a hex string (with or without 0x), convert to actual hex bytes
       // Otherwise, encode as UTF-8
@@ -119,66 +113,220 @@ class NFTService {
         capsuleIdBytesLength: capsuleIdBytes.length,
         capsuleIdBytesHex: Buffer.from(capsuleIdBytes).toString('hex')
       });
-      
-      // Call entry function (it handles transfer internally)
-      tx.moveCall({
-        target: `${this.packageId}::capsule_nft::mint_nft`,
-        arguments: [
-          tx.pure.vector('u8', Array.from(capsuleIdBytes)), // Capsule ID as vector<u8>
-          tx.pure.address(ownerAddress), // Owner address
-          tx.pure.vector('u8', Array.from(mediaBlobBytes)), // Media blob ID
-          tx.pure.vector('u8', Array.from(messageBytes)), // Message
-          tx.pure.vector('u8', Array.from(voiceBlobBytes)), // Voice blob ID (empty if none)
-        ],
-      });
 
-      // Build, sign, and execute transaction
-      // Gas budget is already set above, so build() will use it
-      const txBytes = await tx.build({ client: this.suiClient });
-      const signature = await effectiveSigner.signTransaction(txBytes);
+      // Build, sign, and execute transaction with retry logic for version mismatches
+      const maxRetries = 3;
+      let lastError: unknown;
+      let result: Awaited<ReturnType<typeof this.suiClient.executeTransactionBlock>> | null = null;
       
-      const result = await this.suiClient.executeTransactionBlock({
-        transactionBlock: txBytes,
-        signature: typeof signature === 'string' ? signature : signature.signature,
-        options: {
-          showEffects: true,
-          showEvents: true,
-          showObjectChanges: true,
-        },
-      });
-      
-      // Check if transaction failed
-      const effectsStatus = result.effects?.status;
-      if (effectsStatus && 'status' in effectsStatus && effectsStatus.status === 'failure') {
-        const errorMessage = effectsStatus.error || 'Transaction failed with unknown error';
-        const errorDetails = effectsStatus.error ? JSON.stringify(effectsStatus.error, null, 2) : 'No error details available';
-        logger.error('NFT mint transaction failed', {
-          txDigest: result.digest,
-          error: errorMessage,
-          errorDetails,
-          capsuleId,
-          ownerAddress,
-          packageId: this.packageId,
-        });
-        throw new Error(`NFT mint transaction failed: ${errorMessage}. Details: ${errorDetails}`);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          // Build transaction to mint NFT (rebuild on retry to get fresh object versions)
+          let tx = new Transaction();
+          
+          // Set the sender (required for transaction building)
+          tx.setSender(effectiveSigner.toSuiAddress());
+          
+          // Set gas budget explicitly (10 million MIST = 0.01 SUI)
+          // This bypasses auto-estimation and ensures sufficient gas for NFT minting
+          tx.setGasBudget(10000000n);
+          
+          // Call entry function (it handles transfer internally)
+          tx.moveCall({
+            target: `${this.packageId}::capsule_nft::mint_nft`,
+            arguments: [
+              tx.pure.vector('u8', Array.from(capsuleIdBytes)), // Capsule ID as vector<u8>
+              tx.pure.address(ownerAddress), // Owner address
+              tx.pure.vector('u8', Array.from(mediaBlobBytes)), // Media blob ID
+              tx.pure.vector('u8', Array.from(messageBytes)), // Message
+              tx.pure.vector('u8', Array.from(voiceBlobBytes)), // Voice blob ID (empty if none)
+              tx.pure.u64(unlockAt), // Unlock timestamp (0 = no time lock)
+            ],
+          });
+          
+          if (attempt > 1) {
+            logger.debug('Rebuilding transaction for retry', { attempt, capsuleId });
+          }
+          
+          logger.debug('Building transaction', { attempt, capsuleId, packageId: this.packageId });
+          let txBytes: Uint8Array;
+          try {
+            txBytes = await tx.build({ client: this.suiClient });
+          } catch (buildError: unknown) {
+            logger.error('Transaction build failed', {
+              attempt,
+              error: buildError instanceof Error ? buildError.message : String(buildError),
+              capsuleId,
+            });
+            throw buildError;
+          }
+          
+          logger.debug('Signing transaction', { attempt, capsuleId });
+          let signature: string | { signature: string };
+          try {
+            signature = await effectiveSigner.signTransaction(txBytes);
+          } catch (signError: unknown) {
+            logger.error('Transaction signing failed', {
+              attempt,
+              error: signError instanceof Error ? signError.message : String(signError),
+              capsuleId,
+            });
+            throw signError;
+          }
+          
+          logger.debug('Executing NFT mint transaction', { attempt, capsuleId, packageId: this.packageId });
+          
+          try {
+            const txResult = await this.suiClient.executeTransactionBlock({
+              transactionBlock: txBytes,
+              signature: typeof signature === 'string' ? signature : signature.signature,
+              options: {
+                showEffects: true,
+                showEvents: true,
+              showObjectChanges: true,
+            },
+          });
+          
+          // Assign to outer result variable
+          result = txResult;
+          
+          } catch (executeError: unknown) {
+            logger.error('executeTransactionBlock threw an error', {
+              attempt,
+              error: executeError instanceof Error ? executeError.message : String(executeError),
+              errorType: executeError instanceof Error ? executeError.constructor.name : typeof executeError,
+              errorStack: executeError instanceof Error ? executeError.stack : undefined,
+              capsuleId,
+            });
+            throw executeError; // Re-throw to be caught by outer catch
+          }
+          
+          // Check if transaction failed
+          const effectsStatus = result.effects?.status;
+          if (effectsStatus && 'status' in effectsStatus && effectsStatus.status === 'failure') {
+            const errorMessage = effectsStatus.error || 'Transaction failed with unknown error';
+            const errorStr = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
+            
+            // Check if this is a version mismatch error (retryable)
+            const isVersionMismatch = errorStr.includes('not available for consumption') && 
+                                     (errorStr.includes('Version') || errorStr.includes('current version'));
+            
+            if (isVersionMismatch && attempt < maxRetries) {
+              logger.warn('Version mismatch detected, retrying transaction', {
+                attempt,
+                maxRetries,
+                capsuleId,
+                error: errorMessage,
+              });
+              // Wait a bit before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+              lastError = errorMessage;
+              continue; // Retry
+            }
+            
+            // Check if this is a contract version mismatch error (needs redeployment)
+            if (errorStr.includes('not available for consumption') || errorStr.includes('Version') || errorStr.includes('current version')) {
+              logger.error('NFT mint failed - Contract version mismatch. Contract needs redeployment.', {
+                txDigest: result.digest,
+                error: errorMessage,
+                capsuleId,
+                ownerAddress,
+                packageId: this.packageId,
+                hint: 'The Move contract on-chain does not match the code. Please redeploy the contract with the new unlock_at parameter.',
+              });
+              throw new Error(`Contract version mismatch: The Move contract needs to be redeployed with the new unlock_at parameter. Please run the deployment script to update the contract on-chain. Original error: ${errorMessage}`);
+            }
+            
+            // Non-retryable error
+            const errorDetails = effectsStatus.error ? JSON.stringify(effectsStatus.error, null, 2) : 'No error details available';
+            logger.error('NFT mint transaction failed', {
+              txDigest: result.digest,
+              error: errorMessage,
+              errorDetails,
+              capsuleId,
+              ownerAddress,
+              packageId: this.packageId,
+            });
+            throw new Error(`NFT mint transaction failed: ${errorMessage}. Details: ${errorDetails}`);
+          }
+          
+          // Success - result is already set from executeTransactionBlock
+          logger.info('✅ Transaction succeeded', { attempt, capsuleId, txDigest: result.digest });
+          break; // Break out of retry loop - result is already set
+          
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorStr = errorMessage;
+          lastError = error; // Store the actual error object
+          
+          logger.warn('Transaction attempt failed', {
+            attempt,
+            maxRetries,
+            capsuleId,
+            error: errorMessage,
+            errorType: error instanceof Error ? error.constructor.name : typeof error,
+          });
+          
+          // Check if this is a version mismatch error (retryable)
+          const isVersionMismatch = errorStr.includes('not available for consumption') && 
+                                   (errorStr.includes('Version') || errorStr.includes('current version'));
+          
+          if (isVersionMismatch && attempt < maxRetries) {
+            logger.warn('Version mismatch detected in catch, retrying transaction', {
+              attempt,
+              maxRetries,
+              capsuleId,
+              error: errorMessage,
+            });
+            // Wait a bit before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+            continue; // Retry
+          }
+          
+          // If it's the last attempt or not retryable, throw
+          if (attempt === maxRetries || !isVersionMismatch) {
+            throw error;
+          }
+        }
       }
+      
+      // If we get here, result should be set from the successful attempt
+      if (!result) {
+        let errorMsg = 'Unknown error';
+        if (lastError instanceof Error) {
+          errorMsg = lastError.message || lastError.toString();
+        } else if (lastError) {
+          errorMsg = String(lastError);
+        }
+        logger.error('NFT mint failed after all retries', {
+          attempts: maxRetries,
+          capsuleId,
+          lastError: errorMsg,
+          lastErrorType: lastError ? (lastError instanceof Error ? lastError.constructor.name : typeof lastError) : 'undefined',
+        });
+        throw new Error(`NFT mint failed after ${maxRetries} attempts: ${errorMsg}`);
+      }
+      
+      // TypeScript now knows result is not null - use type assertion
+      const finalResult = result as Awaited<ReturnType<typeof this.suiClient.executeTransactionBlock>>;
+      const effectsStatus = finalResult.effects?.status;
 
         logger.debug('Transaction executed', {
-        txDigest: result.digest,
-        eventsCount: result.events?.length || 0,
-        objectChangesCount: result.objectChanges?.length || 0,
+        txDigest: finalResult.digest,
+        eventsCount: finalResult.events?.length || 0,
+        objectChangesCount: finalResult.objectChanges?.length || 0,
         effectsStatus: effectsStatus?.status || 'success',
       });
       
       // Try to extract NFT ID from objectChanges first (more reliable)
       let nftId: string | null = null;
-      if (result.objectChanges) {
+      if (finalResult.objectChanges) {
         logger.debug('Inspecting objectChanges for NFT ID', {
-          objectChangesCount: result.objectChanges.length,
-          objectChanges: JSON.stringify(result.objectChanges, null, 2),
+          objectChangesCount: finalResult.objectChanges.length,
+          objectChanges: JSON.stringify(finalResult.objectChanges, null, 2),
         });
         
-        for (const change of result.objectChanges) {
+        for (const change of finalResult.objectChanges) {
           // Check if it's a created object
           if (change.type === 'created') {
             // Check objectType field
@@ -203,8 +351,8 @@ class NFTService {
       
       // Fallback to events if not found in objectChanges
       if (!nftId) {
-        logger.debug('Checking events for NFT ID', { eventsCount: result.events?.length || 0 });
-        nftId = this.extractNFTIdFromEvents(result.events || []);
+        logger.debug('Checking events for NFT ID', { eventsCount: finalResult.events?.length || 0 });
+        nftId = this.extractNFTIdFromEvents(finalResult.events || []);
         if (nftId) {
           logger.debug('Found NFT ID from events', { nftId });
         }
@@ -213,7 +361,7 @@ class NFTService {
       // If still not found, wait a bit and query events from the network
       if (!nftId) {
         try {
-          logger.debug('Querying network events for NFT', { ownerAddress, capsuleId, txDigest: result.digest });
+          logger.debug('Querying network events for NFT', { ownerAddress, capsuleId, txDigest: finalResult.digest });
           // Wait a bit for event indexing
           await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
           
@@ -316,15 +464,15 @@ class NFTService {
       
       // If STILL no NFT ID, this is a critical error - throw instead of returning unknown
       if (!nftId) {
-        const errorMsg = `CRITICAL: Could not extract NFT ID from transaction. Transaction succeeded but NFT ID is missing. TxDigest: ${result.digest}, CapsuleId: ${capsuleId}, Owner: ${ownerAddress}`;
+        const errorMsg = `CRITICAL: Could not extract NFT ID from transaction. Transaction succeeded but NFT ID is missing. TxDigest: ${finalResult.digest}, CapsuleId: ${capsuleId}, Owner: ${ownerAddress}`;
         logger.error(errorMsg, {
           capsuleId,
-          txDigest: result.digest,
+          txDigest: finalResult.digest,
           ownerAddress,
-          events: result.events?.length || 0,
-          objectChanges: result.objectChanges?.length || 0,
-          objectChangesDetails: JSON.stringify(result.objectChanges, null, 2),
-          eventsDetails: JSON.stringify(result.events, null, 2),
+          events: finalResult.events?.length || 0,
+          objectChanges: finalResult.objectChanges?.length || 0,
+          objectChangesDetails: JSON.stringify(finalResult.objectChanges, null, 2),
+          eventsDetails: JSON.stringify(finalResult.events, null, 2),
         });
         throw new Error(errorMsg);
       }
@@ -332,14 +480,91 @@ class NFTService {
       logger.debug('NFT minted successfully', {
         capsuleId,
         nftId,
-        txDigest: result.digest,
+        txDigest: finalResult.digest,
+        unlockAt: unlockAt > 0 ? new Date(unlockAt).toISOString() : 'immediate',
       });
+
+      // Create Display object for wallet display (with image URL)
+      // Note: Sui wallets look for display metadata with image_url field
+      // For custom NFTs, we need to wait for the NFT to be indexed, then create Display
+      try {
+        const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:3001';
+        const imageUrl = `${backendUrl}/api/capsule/${capsuleId}/nft/preview`;
+        
+        // Wait for NFT to be indexed before creating Display
+        logger.debug('Waiting for NFT to be indexed before creating Display...', { nftId });
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+        
+        // Verify NFT exists before creating Display
+        try {
+          await this.suiClient.getObject({
+            id: nftId,
+            options: { showType: true },
+          });
+        } catch (checkError) {
+          logger.warn('NFT not yet available for Display creation, skipping', {
+            nftId,
+            error: checkError instanceof Error ? checkError.message : String(checkError),
+          });
+          // Skip Display creation if NFT not available
+          return {
+            nftId,
+            capsuleId,
+            glowIntensity: 200,
+            txDigest: finalResult.digest,
+          };
+        }
+        
+        // Display metadata is handled by the Move contract's getter functions
+        // The contract implements: name(), description(), image_url(), and link()
+        // Sui wallets will automatically call these functions to get display metadata
+        logger.info('✅ NFT minted with Display getter functions', {
+          nftId,
+          imageUrl,
+          note: 'Wallets will call the Move contract getter functions (name, description, image_url, link) automatically',
+        });
+        
+      } catch (displayError) {
+        // Display creation is optional - log but don't fail
+        logger.warn('Display creation skipped (non-critical)', { 
+          error: displayError instanceof Error ? displayError.message : String(displayError),
+          nftId 
+        });
+      }
+
+      // Store NFT metadata in database including unlock info
+      try {
+        const db = (await import('../db/database')).getDatabase();
+        const isLocked = unlockAt > 0 && unlockAt > Date.now();
+        await db.execute(
+          `INSERT INTO capsule_nfts (nft_id, capsule_id, object_id, owner_address, unlock_at, is_locked, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE 
+             object_id = VALUES(object_id),
+             unlock_at = VALUES(unlock_at),
+             is_locked = VALUES(is_locked),
+             metadata = VALUES(metadata)`,
+          [
+            nftId,
+            capsuleId,
+            nftId, // object_id is same as nft_id for now
+            ownerAddress,
+            unlockAt,
+            isLocked ? 1 : 0,
+            JSON.stringify({ message, mediaBlobId, voiceBlobId: voiceBlobId || null }),
+          ]
+        );
+        logger.debug('NFT metadata stored in database', { nftId, capsuleId, isLocked });
+      } catch (dbError) {
+        logger.warn('Failed to store NFT metadata in database', { error: dbError, nftId, capsuleId });
+        // Don't fail the mint if DB write fails
+      }
 
       return {
         nftId,
         capsuleId,
         glowIntensity: 200, // Initial glow (0.8 * 255)
-        txDigest: result.digest,
+        txDigest: finalResult.digest,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

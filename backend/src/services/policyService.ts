@@ -48,7 +48,7 @@ class PolicyService {
         : '0x5c1dfc84f7d49e83090eaca96a651c2bbaa5a6e999d1c854bd2c7fda8c02bd7f'
     );
     
-    this.capsulePackageId = config.capsulePackageId || process.env.CAPSULE_PACKAGE_ID || '0x6d0be913760c1606a9c390990a3a07bed24235d728f0fc6cacf1dca792d9a5d0';
+    this.capsulePackageId = config.capsulePackageId || process.env.CAPSULE_PACKAGE_ID || '0x267d1b63db92e7a5502b334cd353cea7a5d40c9ed779dee4fe7211f37eb9f4b4';
 
     // Initialize signer if provided
     if (config.signer) {

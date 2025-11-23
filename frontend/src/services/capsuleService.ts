@@ -61,7 +61,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
  */
 export async function uploadCapsule(
   file: File,
-  metadata: { description?: string; tags?: string[]; message?: string; soulbound?: boolean },
+  metadata: { description?: string; tags?: string[]; message?: string; soulbound?: boolean; nftUnlockAt?: number },
   unlockConfig: CapsuleUnlockConfig,
   userAddress: string,
   voiceBlob?: Blob,
@@ -108,6 +108,12 @@ export async function uploadCapsule(
     }
     if (metadata.tags?.length) formData.append('tags', JSON.stringify(metadata.tags));
     formData.append('soulbound', metadata.soulbound ? 'true' : 'false');
+    
+    // NFT unlock time (separate from capsule unlock time)
+    if (metadata.nftUnlockAt && metadata.nftUnlockAt > 0) {
+      formData.append('unlockAt', metadata.nftUnlockAt.toString());
+      logger.debug('Added NFT unlockAt to FormData', { unlockAt: metadata.nftUnlockAt });
+    }
     
     // CRITICAL: Always include voiceBlobId if we have it
     if (voiceBlobId) {
