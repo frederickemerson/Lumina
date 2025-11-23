@@ -50,7 +50,7 @@ export function useLumina() {
   // Capsule functions - server-based flow
   const uploadCapsule = useCallback(async (
     file: File,
-    metadata: { description?: string; tags?: string[]; message?: string; soulbound?: boolean },
+    metadata: { description?: string; tags?: string[]; message?: string; soulbound?: boolean; nftUnlockAt?: number },
     unlockConfig: CapsuleUnlockConfig,
     voiceBlob?: Blob,
     onProgress?: (stage: string, progress: number) => void

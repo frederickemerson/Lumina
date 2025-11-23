@@ -243,7 +243,7 @@ const suiClient = new SuiClient({
   url: process.env.SUI_FULLNODE_URL || 'https://fullnode.testnet.sui.io:443',
 });
 
-const CAPSULE_PACKAGE_ID = process.env.CAPSULE_PACKAGE_ID || '0x6d0be913760c1606a9c390990a3a07bed24235d728f0fc6cacf1dca792d9a5d0';
+const CAPSULE_PACKAGE_ID = process.env.CAPSULE_PACKAGE_ID || '0x267d1b63db92e7a5502b334cd353cea7a5d40c9ed779dee4fe7211f37eb9f4b4';
 const nftService = new NFTService({
   network: (process.env.WALRUS_NETWORK as 'testnet' | 'devnet' | 'mainnet') || 'testnet',
   packageId: CAPSULE_PACKAGE_ID,
@@ -302,6 +302,10 @@ router.post('/upload',
       const message = (req.body.message as string | undefined)?.trim();
       const voiceBlobId = req.body.voiceBlobId as string | undefined;
       const soulbound = req.body.soulbound === 'true';
+      // Parse unlockAt timestamp (0 = no time lock, unlocked immediately)
+      const unlockAt = req.body.unlockAt 
+        ? parseInt(req.body.unlockAt as string, 10) || 0 
+        : 0;
 
       // Log what we received
       logger.debug('Upload request received', {
@@ -514,6 +518,7 @@ router.post('/upload',
             message,
             voiceBlobId || '',
             soulbound,
+            unlockAt,
             walrusSigner,
           );
           nftId = minted.nftId;
@@ -871,6 +876,172 @@ router.get('/:capsuleId/nft', async (req: Request, res: Response) => {
     const errorMessage = getErrorMessage(error);
     logger.error('Failed to get NFT', { error, capsuleId: req.params.capsuleId });
     res.status(500).json({ error: 'Failed to get NFT', details: errorMessage });
+  }
+});
+
+/**
+ * Verify NFT display metadata
+ * GET /api/capsule/:capsuleId/nft/display
+ * Checks if the NFT has display metadata set correctly
+ */
+router.get('/:capsuleId/nft/display', async (req: Request, res: Response) => {
+  try {
+    const { capsuleId } = req.params;
+    const normalizedCapsuleId = capsuleId.startsWith('0x') ? capsuleId.slice(2) : capsuleId;
+    
+    // Get NFT ID from database
+    const db = getDatabase();
+    const [nftRows] = await db.execute(
+      'SELECT nft_id FROM capsule_nfts WHERE capsule_id = ?',
+      [normalizedCapsuleId]
+    ) as [any[], any];
+    
+    if (nftRows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'NFT not found for this capsule' 
+      });
+    }
+    
+    const nftId = nftRows[0].nft_id;
+    
+    // Query NFT object with display metadata
+    const { SuiClient } = await import('@mysten/sui/client');
+    const suiClient = new SuiClient({ 
+      url: process.env.SUI_FULLNODE_URL || 'https://fullnode.testnet.sui.io:443' 
+    });
+    
+    const nftObject = await suiClient.getObject({
+      id: nftId,
+      options: {
+        showType: true,
+        showContent: true,
+        showDisplay: true, // This shows display metadata
+        showOwner: true,
+      },
+    });
+    
+    if (!nftObject.data) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'NFT object not found on-chain' 
+      });
+    }
+    
+    const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:3001';
+    const expectedImageUrl = `${backendUrl}/api/capsule/${capsuleId}/nft/preview`;
+    
+    const display = nftObject.data.display as Record<string, string> | undefined;
+    const hasDisplay = !!display;
+    const imageUrl = display?.image_url || display?.url || display?.imageUrl || null;
+    const imageUrlMatches = imageUrl === expectedImageUrl;
+    
+    // Test if image URL is accessible
+    let imageAccessible = false;
+    if (imageUrl) {
+      try {
+        const imageResponse = await fetch(imageUrl, { method: 'HEAD' });
+        imageAccessible = imageResponse.ok;
+      } catch {
+        imageAccessible = false;
+      }
+    }
+    
+    res.json({
+      success: true,
+      nftId,
+      hasDisplay,
+      display: display || null,
+      imageUrl,
+      expectedImageUrl,
+      imageUrlMatches,
+      imageAccessible,
+      status: hasDisplay && imageUrlMatches && imageAccessible 
+        ? '✅ Display metadata set correctly' 
+        : hasDisplay 
+          ? '⚠️  Display exists but image URL may not match or be accessible'
+          : '❌ No display metadata found - NFT will show "No Media" in wallet',
+    });
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
+    logger.error('Failed to verify NFT display', { error, capsuleId: req.params.capsuleId });
+    res.status(500).json({ error: 'Failed to verify NFT display', details: errorMessage });
+  }
+});
+
+/**
+ * Get NFT preview image
+ * GET /api/capsule/:capsuleId/nft/preview
+ * Returns logo.png as base image for all NFTs (serves actual image file for Sui wallet)
+ */
+router.get('/:capsuleId/nft/preview', async (req: Request, res: Response) => {
+  try {
+    const { capsuleId } = req.params;
+    const normalizedCapsuleId = capsuleId.startsWith('0x') ? capsuleId.slice(2) : capsuleId;
+    
+    // Get NFT info to check if it's locked
+    const db = getDatabase();
+    const [nftRows] = await db.execute(
+      'SELECT is_locked, unlock_at FROM capsule_nfts WHERE capsule_id = ?',
+      [normalizedCapsuleId]
+    ) as [any[], any];
+    
+    const nft = nftRows[0] as { is_locked: number; unlock_at: number } | undefined;
+    const isLocked = nft?.is_locked === 1;
+    
+    // Get capsule metadata to check file type
+    const [vaultRows] = await db.execute(
+      'SELECT file_type FROM evidence_vaults WHERE vault_id = ?',
+      [normalizedCapsuleId]
+    ) as [any[], any];
+    
+    const vault = vaultRows[0] as { file_type: string } | undefined;
+    const fileType = vault?.file_type || 'image/png';
+    
+    // Serve logo.png file directly for Sui wallet display
+    // Sui wallet needs a publicly accessible image URL
+    try {
+      const path = require('path');
+      const fs = require('fs');
+      const logoPath = path.join(process.cwd(), '../frontend/public/logo.png');
+      
+      // Check if logo exists, serve it directly
+      if (fs.existsSync(logoPath)) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+        res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS for Sui wallet
+        const logoBuffer = fs.readFileSync(logoPath);
+        return res.send(logoBuffer);
+      }
+    } catch (fileError) {
+      logger.debug('Could not serve logo file directly, using URL fallback', { error: fileError });
+    }
+    
+    // Fallback to URL if file not found or error
+    // Use backend URL for public access (Sui wallet needs publicly accessible URL)
+    const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:3001';
+    const logoUrl = `${backendUrl}/api/capsule/${capsuleId}/nft/preview`;
+    
+    // Return JSON with image URL for frontend, or serve image directly if Accept header requests image
+    const acceptHeader = req.headers.accept || '';
+    if (acceptHeader.includes('image/')) {
+      // Client wants image directly, redirect to image endpoint
+      return res.redirect(logoUrl);
+    }
+    
+    res.json({
+      success: true,
+      preview: logoUrl,
+      fileType,
+      isLocked,
+      message: isLocked 
+        ? 'NFT is locked. Preview will be available after unlock time.' 
+        : 'NFT preview (using logo as base)',
+    });
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
+    logger.error('Failed to get NFT preview', { error, capsuleId: req.params.capsuleId });
+    res.status(500).json({ error: 'Failed to get NFT preview', details: errorMessage });
   }
 });
 

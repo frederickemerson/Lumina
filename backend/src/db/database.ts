@@ -154,11 +154,95 @@ export async function initializeDatabase(): Promise<void> {
         object_id VARCHAR(255) NOT NULL,
         owner_address VARCHAR(255) NOT NULL,
         metadata TEXT,
+        unlock_at BIGINT DEFAULT 0,
+        is_locked TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_capsule_id (capsule_id),
-        INDEX idx_owner_address (owner_address)
+        INDEX idx_owner_address (owner_address),
+        INDEX idx_unlock_at (unlock_at),
+        INDEX idx_is_locked (is_locked)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+    
+    // Add unlock_at and is_locked columns if they don't exist (for existing databases)
+    try {
+      const [columns] = await db.execute(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'capsule_nfts' 
+        AND COLUMN_NAME = 'unlock_at'
+      `) as [any[], any];
+      
+      if (columns.length === 0) {
+        await db.execute(`
+          ALTER TABLE capsule_nfts 
+          ADD COLUMN unlock_at BIGINT DEFAULT 0
+        `);
+        logger.info('Added unlock_at column to capsule_nfts');
+      }
+    } catch (error: any) {
+      logger.warn('Failed to add unlock_at column', { error });
+    }
+    
+    try {
+      const [columns] = await db.execute(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'capsule_nfts' 
+        AND COLUMN_NAME = 'is_locked'
+      `) as [any[], any];
+      
+      if (columns.length === 0) {
+        await db.execute(`
+          ALTER TABLE capsule_nfts 
+          ADD COLUMN is_locked TINYINT(1) NOT NULL DEFAULT 0
+        `);
+        logger.info('Added is_locked column to capsule_nfts');
+      }
+    } catch (error: any) {
+      logger.warn('Failed to add is_locked column', { error });
+    }
+    
+    // Add indexes if they don't exist
+    try {
+      const [indexes] = await db.execute(`
+        SELECT INDEX_NAME 
+        FROM INFORMATION_SCHEMA.STATISTICS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'capsule_nfts' 
+        AND INDEX_NAME = 'idx_unlock_at'
+      `) as [any[], any];
+      
+      if (indexes.length === 0) {
+        await db.execute(`
+          CREATE INDEX idx_unlock_at ON capsule_nfts(unlock_at)
+        `);
+        logger.info('Created idx_unlock_at index');
+      }
+    } catch (error: any) {
+      logger.debug('Index idx_unlock_at might already exist', { error });
+    }
+    
+    try {
+      const [indexes] = await db.execute(`
+        SELECT INDEX_NAME 
+        FROM INFORMATION_SCHEMA.STATISTICS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'capsule_nfts' 
+        AND INDEX_NAME = 'idx_is_locked'
+      `) as [any[], any];
+      
+      if (indexes.length === 0) {
+        await db.execute(`
+          CREATE INDEX idx_is_locked ON capsule_nfts(is_locked)
+        `);
+        logger.info('Created idx_is_locked index');
+      }
+    } catch (error: any) {
+      logger.debug('Index idx_is_locked might already exist', { error });
+    }
 
     // AR anchors table
     await db.execute(`
@@ -293,6 +377,38 @@ export async function initializeDatabase(): Promise<void> {
         key_id VARCHAR(255) PRIMARY KEY,
         metadata TEXT NOT NULL,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // User notification preferences
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS user_notifications (
+        user_address VARCHAR(255) PRIMARY KEY,
+        email VARCHAR(255),
+        webhook TEXT,
+        enabled TINYINT(1) NOT NULL DEFAULT 1,
+        notify_on_unlock TINYINT(1) NOT NULL DEFAULT 1,
+        notify_on_unlock_soon TINYINT(1) NOT NULL DEFAULT 0,
+        unlock_soon_threshold INT NOT NULL DEFAULT 24,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_enabled (enabled),
+        INDEX idx_notify_unlock_soon (notify_on_unlock_soon)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // Notification sent log (to prevent duplicate notifications)
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS notification_sent (
+        notification_id VARCHAR(255) PRIMARY KEY,
+        user_address VARCHAR(255) NOT NULL,
+        nft_id VARCHAR(255) NOT NULL,
+        notification_type VARCHAR(50) NOT NULL,
+        sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_address (user_address),
+        INDEX idx_nft_id (nft_id),
+        INDEX idx_notification_type (notification_type),
+        INDEX idx_sent_at (sent_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 

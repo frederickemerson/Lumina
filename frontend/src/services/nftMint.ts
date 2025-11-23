@@ -19,6 +19,7 @@ export interface MintNFTOptions {
   voiceBlobId?: string;
   userAddress: string;
   signer: WalletSigner;
+  unlockAt?: number; // Timestamp when NFT unlocks (0 = no time lock, unlocked immediately)
 }
 
 export interface MintNFTResult {
@@ -31,7 +32,7 @@ export interface MintNFTResult {
  * Mint NFT for a capsule from user's wallet
  */
 export async function mintCapsuleNFT(options: MintNFTOptions): Promise<MintNFTResult> {
-  const { capsuleId, mediaBlobId, message, voiceBlobId = '', userAddress, signer } = options;
+  const { capsuleId, mediaBlobId, message, voiceBlobId = '', userAddress, signer, unlockAt = 0 } = options;
 
   if (!CAPSULE_NFT_PACKAGE_ID) {
     throw new Error('VITE_CAPSULE_NFT_PACKAGE_ID or VITE_CAPSULE_PACKAGE_ID is not configured');
@@ -57,6 +58,7 @@ export async function mintCapsuleNFT(options: MintNFTOptions): Promise<MintNFTRe
       tx.pure.vector('u8', Array.from(mediaBlobIdBytes)),
       tx.pure.vector('u8', Array.from(messageBytes)),
       tx.pure.vector('u8', Array.from(voiceBlobIdBytes)),
+      tx.pure.u64(unlockAt), // Unlock timestamp (0 = no time lock)
     ],
   });
 

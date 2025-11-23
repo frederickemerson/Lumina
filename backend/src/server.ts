@@ -149,9 +149,11 @@ app.use(csrfProtection);
 // API routes
 import evidenceRouter from './api/evidence';
 import capsuleRouter from './api/capsule';
+import notificationsRouter from './api/notifications';
 
 app.use('/api/evidence', evidenceRouter);
 app.use('/api/capsule', capsuleRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Error handling middleware (must be last)
 app.use(errorHandlerMiddleware);
@@ -163,6 +165,10 @@ let server: ReturnType<typeof app.listen> | null = null;
 import ARSyncService from './services/arSync';
 const arSyncService = new ARSyncService();
 
+// Import Timed NFT service
+import { getTimedNFTService } from './services/timedNFTService';
+const timedNFTService = getTimedNFTService();
+
 // Graceful shutdown handler
 const gracefulShutdown = (signal: string) => {
   logger.info(`Received ${signal}, starting graceful shutdown...`);
@@ -171,7 +177,11 @@ const gracefulShutdown = (signal: string) => {
     server.close(() => {
       logger.info('HTTP server closed');
       
-          // Close database connections
+          // Stop services
+      arSyncService.stop();
+      timedNFTService.stop();
+      
+      // Close database connections
           try {
             import('./db/database').then((dbModule) => {
               if (dbModule.closeDatabase) {
@@ -221,6 +231,12 @@ process.on('unhandledRejection', (reason) => {
 if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
   const arSyncPort = parseInt(process.env.AR_SYNC_PORT || '8080');
   arSyncService.start(arSyncPort);
+  
+  // Start Timed NFT service (daily cron job for unlocking NFTs)
+  timedNFTService.start();
+  
+  // Start checking for upcoming unlocks (for advance notifications)
+  timedNFTService.startUpcomingUnlockChecks();
 }
 
 // Start server only if not in test mode
@@ -238,6 +254,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
   const shutdown = () => {
     logger.info('Shutting down gracefully');
     arSyncService.stop();
+    timedNFTService.stop();
     if (server) {
       server.close(() => {
         logger.info('Server closed');

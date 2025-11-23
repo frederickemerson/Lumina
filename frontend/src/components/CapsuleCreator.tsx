@@ -23,7 +23,7 @@ interface CapsuleCreatorProps {
   isConnected: boolean;
   uploadCapsule: (
     file: File,
-    metadata: { description?: string; tags?: string[]; message?: string },
+    metadata: { description?: string; tags?: string[]; message?: string; nftUnlockAt?: number },
     unlockConfig: CapsuleUnlockConfig,
     voiceBlob?: Blob,
     onProgress?: (stage: string, progress: number) => void
@@ -50,7 +50,6 @@ export function CapsuleCreator({
   const [tags, setTags] = useState('');
   // Each capsule has its own unlock condition
   const [unlockCondition, setUnlockCondition] = useState<UnlockCondition>('manual');
-  const [unlockDateTime, setUnlockDateTime] = useState<string>('');
   // Multi-party options
   const [sharedOwners, setSharedOwners] = useState<string[]>([]);
   const [newOwnerAddress, setNewOwnerAddress] = useState('');
@@ -64,6 +63,7 @@ export function CapsuleCreator({
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null); // Separate voice recording for NFT
   const [message, setMessage] = useState(''); // Optional message for NFT
+  const [nftUnlockAt, setNftUnlockAt] = useState<string>(''); // NFT unlock date (only used when time unlock is selected)
   const [enableInheritance, setEnableInheritance] = useState(false);
   const [inheritanceAddresses, setInheritanceAddresses] = useState('');
   const [inheritanceInactiveDays, setInheritanceInactiveDays] = useState(365);
@@ -198,7 +198,7 @@ export function CapsuleCreator({
       // Build unlock config - public sharing removed for security
       const unlockConfig: CapsuleUnlockConfig = {
         condition: unlockCondition,
-        unlockDateTime: unlockCondition === 'time' && unlockDateTime ? unlockDateTime : undefined,
+        unlockDateTime: undefined, // Using NFT unlock date instead
         sharedOwners: enableMultiParty && sharedOwners.length > 0 ? sharedOwners : undefined,
         quorumThreshold: enableMultiParty && sharedOwners.length > 0 ? quorumThreshold : undefined,
         inheritanceTargets: enableInheritance && inheritanceAddresses.trim().length > 0
@@ -217,12 +217,18 @@ export function CapsuleCreator({
       toast.loading('Starting capsule creation...', { id: 'capsule-create' });
       addLog('Upload', 'Sending encrypted data to backend...', 'processing');
       
+      // Convert NFT unlock date to timestamp (end of day)
+      const nftUnlockTimestamp = nftUnlockAt 
+        ? new Date(nftUnlockAt + 'T23:59:59').getTime() 
+        : 0;
+      
       const result = await uploadCapsule(
         fileToUpload,
         {
           description: description || undefined,
           message: message || undefined,
           tags: tagsArray.length > 0 ? tagsArray : undefined,
+          nftUnlockAt: nftUnlockTimestamp > 0 ? nftUnlockTimestamp : undefined,
         },
         unlockConfig,
         voiceBlob || undefined, // Pass voice blob directly (convert null to undefined)
@@ -488,7 +494,6 @@ export function CapsuleCreator({
             </p>
           </div>
 
-
           {/* Description (Optional) */}
           <div>
             <Label style={{ marginBottom: spacing.xs }}>
@@ -590,7 +595,9 @@ export function CapsuleCreator({
               value={unlockCondition}
               onChange={(e) => {
                 setUnlockCondition(e.target.value as UnlockCondition);
-                if (e.target.value !== 'time') setUnlockDateTime('');
+                if (e.target.value !== 'time') {
+                  setNftUnlockAt(''); // Clear NFT unlock date when not using time unlock
+                }
               }}
               style={inputStyles.base}
             >
@@ -599,19 +606,29 @@ export function CapsuleCreator({
             </select>
           </div>
 
-          {/* Unlock DateTime (if timer selected) */}
+          {/* NFT Unlock Date (Only show if time unlock is selected) */}
           {unlockCondition === 'time' && (
             <div>
               <Label style={{ marginBottom: spacing.xs }}>
-                Unlock Date & Time
+                NFT Unlock Date (Days)
               </Label>
               <input
-                type="datetime-local"
-                value={unlockDateTime}
-                onChange={(e) => setUnlockDateTime(e.target.value)}
-                style={inputStyles.base}
-                min={new Date().toISOString().slice(0, 16)}
+                type="date"
+                value={nftUnlockAt}
+                onChange={(e) => setNftUnlockAt(e.target.value)}
+                style={{
+                  ...inputStyles.base,
+                  width: '100%',
+                  padding: '10px',
+                }}
               />
+              <p style={{ 
+                color: colors.textSecondary, 
+                fontSize: typography.fontSize.xs, 
+                marginTop: spacing.xs 
+              }}>
+                Set a date when this NFT will unlock. Leave empty for immediate unlock. The NFT will be locked until this date.
+              </p>
             </div>
           )}
 
@@ -842,7 +859,6 @@ export function CapsuleCreator({
           setDescription('');
           setTags('');
           setUnlockCondition('manual');
-          setUnlockDateTime('');
           setEnableMultiParty(false);
           setSharedOwners([]);
           setQuorumThreshold(1);
