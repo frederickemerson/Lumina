@@ -1,0 +1,212 @@
+.seal-matching {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.matching-card {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 2.5rem;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.matching-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-accent);
+}
+
+.matching-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px rgba(255, 107, 157, 0.3);
+  transform: translateY(-4px);
+}
+
+.matching-card h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 600;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+
+.description {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.match-type-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.match-type-selector button {
+  flex: 1;
+  padding: 1rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+}
+
+.match-type-selector button:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.match-type-selector button.active {
+  background: var(--gradient-accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+}
+
+.matching-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.form-group input {
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  font-family: 'Inter', sans-serif;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(255, 107, 157, 0.1);
+  background: var(--bg-secondary);
+}
+
+.matching-form button {
+  padding: 1rem 2rem;
+  background: var(--gradient-accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-md);
+  margin-top: 1rem;
+}
+
+.matching-form button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(255, 107, 157, 0.5);
+}
+
+.matching-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.match-result {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-tertiary);
+  border-radius: 16px;
+  border: 1px solid var(--accent);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.match-result h3 {
+  color: var(--accent);
+  margin-bottom: 1rem;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-item span:first-child {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.info-item span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.encrypted {
+  color: var(--accent);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.error {
+  background: linear-gradient(135deg, rgba(255, 68, 68, 0.2) 0%, rgba(255, 68, 68, 0.1) 100%);
+  color: var(--error);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--error);
+  animation: slideIn 0.3s ease-out;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .seal-matching {
+    padding: 1rem;
+  }
+  
+  .matching-card {
+    padding: 1.5rem;
+  }
+}
+

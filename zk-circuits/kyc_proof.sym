@@ -1,0 +1,10 @@
+1,1,1,main.compliant
+2,-1,1,main.age
+3,2,1,main.sanctions_check
+4,-1,1,main.age_check
+5,-1,1,main.sanctions_ok
+6,-1,1,main.both_ok
+7,-1,1,main.age_diff
+8,-1,0,main.sanctions_checker.out
+9,-1,0,main.sanctions_checker.in
+10,3,0,main.sanctions_checker.inv

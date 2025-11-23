@@ -1,0 +1,12 @@
+[package]
+name = "lumina"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+lumina = "0x0"
+obscura = "0x0"  # Keep for backward compatibility
+

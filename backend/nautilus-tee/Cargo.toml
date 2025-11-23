@@ -1,0 +1,26 @@
+[package]
+name = "nautilus-tee-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.35", features = ["full"] }
+axum = { version = "0.7", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+aws-nitro-enclaves-cose = "0.1"
+aws-nitro-enclaves-nsm-api = "0.1"
+base64 = { version = "0.21", features = ["engine"] }
+sha2 = "0.10"
+ring = "0.17"
+hex = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
