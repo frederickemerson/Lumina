@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { walletAuth, apiKeyAuth } from '../../middleware/auth';
+import { apiKeyAuth } from '../../middleware/auth';
 import { sanitizeAddress } from '../../utils/sanitize';
 import { getErrorMessage } from '../../types/common';
 import { logger } from '../../utils/logger';
@@ -47,7 +47,6 @@ export function createInheritanceRouter(): Router {
    * POST /api/capsule/:capsuleId/inheritance
    */
   router.post('/:capsuleId/inheritance',
-    walletAuth,
     apiKeyAuth,
     auditLogMiddleware,
     validateParams(z.object({ capsuleId: schemas.capsuleId })),
@@ -127,7 +126,6 @@ export function createInheritanceRouter(): Router {
    * POST /api/capsule/:capsuleId/ping
    */
   router.post('/:capsuleId/ping',
-    walletAuth,
     apiKeyAuth,
     auditLogMiddleware,
     validateParams(z.object({ capsuleId: schemas.capsuleId })),
@@ -180,7 +178,6 @@ export function createInheritanceRouter(): Router {
    * GET /api/capsule/:capsuleId/inheritance
    */
   router.get('/:capsuleId/inheritance',
-    walletAuth,
     apiKeyAuth,
     validateParams(z.object({ capsuleId: schemas.capsuleId })),
     async (req: Request, res: Response) => {
@@ -219,7 +216,6 @@ export function createInheritanceRouter(): Router {
    * GET /api/capsule/inheritance/eligible
    */
   router.get('/inheritance/eligible',
-    walletAuth,
     apiKeyAuth,
     async (req: Request, res: Response) => {
       try {
@@ -256,7 +252,6 @@ export function createInheritanceRouter(): Router {
    * POST /api/capsule/:capsuleId/inheritance/claim
    */
   router.post('/:capsuleId/inheritance/claim',
-    walletAuth,
     apiKeyAuth,
     auditLogMiddleware,
     validateParams(z.object({ capsuleId: schemas.capsuleId })),

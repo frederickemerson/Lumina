@@ -32,21 +32,18 @@ class ZKOriginProofService {
   private circuitPath: string;
   private wasmPath: string;
   private zkeyPath: string;
-  private nautilusTeeUrl?: string;
 
-  constructor(config: { nautilusTeeUrl?: string } = {}) {
+  constructor() {
     const circuitsDir = path.join(__dirname, '../../zk-circuits');
     this.circuitPath = path.join(circuitsDir, 'origin_proof.circom');
     // Updated paths to match actual compiled output
     this.wasmPath = path.join(circuitsDir, 'origin_proof_js/origin_proof.wasm');
     this.zkeyPath = path.join(circuitsDir, 'origin_proof_0001.zkey'); // Will be generated with larger power of tau
-    this.nautilusTeeUrl = config.nautilusTeeUrl || process.env.NAUTILUS_TEE_URL;
 
     logger.info('ZK Origin Proof service initialized', {
       hasCircuit: fs.existsSync(this.circuitPath),
       hasWasm: fs.existsSync(this.wasmPath),
       hasZkey: fs.existsSync(this.zkeyPath),
-      hasTee: !!this.nautilusTeeUrl,
     });
   }
 
@@ -56,48 +53,11 @@ class ZKOriginProofService {
    */
   async generateOriginProof(inputs: OriginProofInputs): Promise<OriginProofResult> {
     try {
-      // If Nautilus TEE is available, use it for privacy-preserving proof generation
-      if (this.nautilusTeeUrl) {
-        return this.generateProofInTEE(inputs);
-      }
-
-      // Otherwise, generate proof locally (less private)
+      // Generate proof locally
       return this.generateProofLocally(inputs);
     } catch (error) {
       logger.error('Failed to generate origin proof', { error, inputs: { timestamp: inputs.timestamp, contentLength: inputs.content.length } });
       throw error;
-    }
-  }
-
-  /**
-   * Generate proof in Nautilus TEE (more private)
-   */
-  private async generateProofInTEE(inputs: OriginProofInputs): Promise<OriginProofResult> {
-    try {
-      logger.info('Generating origin proof in Nautilus TEE', {
-        teeUrl: this.nautilusTeeUrl,
-        contentLength: inputs.content.length,
-      });
-
-      // In production, this would make an API call to the Nautilus TEE server
-      // which would generate the proof inside the enclave
-      // const response = await fetch(`${this.nautilusTeeUrl}/zk/origin-proof`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     content: Buffer.from(inputs.content).toString('base64'),
-      //     content: Buffer.from(inputs.content).toString('base64'),
-      //     timestamp: inputs.timestamp,
-      //   }),
-      // });
-      // return await response.json();
-
-      // For now, fallback to local generation
-      logger.warn('Nautilus TEE proof generation not fully implemented, using local generation');
-      return this.generateProofLocally(inputs);
-    } catch (error) {
-      logger.error('TEE proof generation failed, falling back to local', { error });
-      return this.generateProofLocally(inputs);
     }
   }
 

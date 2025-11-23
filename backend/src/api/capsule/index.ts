@@ -17,17 +17,30 @@ const router = Router();
 // Decode capsule ID parameter (supports base64 and ASCII encoding)
 router.param('capsuleId', (req, _res, next, value: string) => {
   if (typeof value === 'string') {
-    const base64Decoded = decodeBase64CapsuleId(value);
+    // URL decode first in case commas were encoded
+    const urlDecoded = decodeURIComponent(value);
+    
+    // Try base64 decoding first
+    const base64Decoded = decodeBase64CapsuleId(urlDecoded);
     if (base64Decoded) {
       req.params.capsuleId = base64Decoded;
       return next();
     }
     
-    if (asciiCapsuleIdPattern.test(value)) {
-      const decoded = decodeAsciiCapsuleId(value);
+    // Try ASCII decoding (comma-separated numbers)
+    if (asciiCapsuleIdPattern.test(urlDecoded)) {
+      const decoded = decodeAsciiCapsuleId(urlDecoded);
       if (decoded) {
         req.params.capsuleId = decoded;
+        return next();
       }
+    }
+    
+    // If no decoding worked, use the value as-is (might already be a hex string)
+    // But ensure it has 0x prefix if it's a 64-char hex string
+    if (/^[a-fA-F0-9]{64}$/.test(urlDecoded)) {
+      req.params.capsuleId = `0x${urlDecoded}`;
+      return next();
     }
   }
   next();

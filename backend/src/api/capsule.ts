@@ -158,20 +158,43 @@ function mimeToContentCategory(mime?: string): 'image' | 'video' | 'audio' | 'te
 
 router.param('capsuleId', (req, _res, next, value: string) => {
   if (typeof value === 'string') {
-    // Try base64 decoding first (new format)
-    const base64Decoded = decodeBase64CapsuleId(value);
+    // URL decode first
+    let decodedValue;
+    try {
+      decodedValue = decodeURIComponent(value);
+    } catch {
+      decodedValue = value;
+    }
+
+    // Check if it's already a valid capsule ID with 0x prefix
+    if (/^0x[a-fA-F0-9]{64}$/.test(decodedValue)) {
+      req.params.capsuleId = decodedValue;
+      return next();
+    }
+
+    // Check if it's a valid capsule ID without 0x prefix
+    if (/^[a-fA-F0-9]{64}$/.test(decodedValue)) {
+      req.params.capsuleId = `0x${decodedValue}`;
+      return next();
+    }
+
+    // Try base64 decoding (legacy format)
+    const base64Decoded = decodeBase64CapsuleId(decodedValue);
     if (base64Decoded) {
       req.params.capsuleId = base64Decoded;
       return next();
     }
-    
+
     // Fall back to ASCII codes (backward compatibility)
-    if (asciiCapsuleIdPattern.test(value)) {
-      const decoded = decodeAsciiCapsuleId(value);
+    if (asciiCapsuleIdPattern.test(decodedValue)) {
+      const decoded = decodeAsciiCapsuleId(decodedValue);
       if (decoded) {
         req.params.capsuleId = decoded;
       }
     }
+
+    // If nothing worked, use as-is (might be an error, but let the handler deal with it)
+    req.params.capsuleId = decodedValue;
   }
   next();
 });
@@ -183,18 +206,9 @@ const upload = multer({
     fileSize: 1024 * 1024 * 1024, // 1GB max (reduced from 100GB for security)
   },
   fileFilter: (req, file, cb) => {
-    // Validate file types
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'video/mp4', 'video/webm', 'video/quicktime',
-      'audio/mpeg', 'audio/wav', 'audio/webm',
-      'application/pdf', 'text/plain', 'application/json',
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Allowed: images, videos, audio, PDF, text, JSON'));
-    }
+    // Allow all file types - Lumina supports preserving any memory
+    // Magic number validation will catch malformed files later
+    cb(null, true);
   },
 });
 
@@ -243,9 +257,7 @@ const inheritanceService = new InheritanceService({
   network: (process.env.WALRUS_NETWORK as 'testnet' | 'devnet' | 'mainnet') || 'testnet',
   signer: walrusSigner,
 });
-const zkOriginProofService = new ZKOriginProofService({
-  nautilusTeeUrl: process.env.NAUTILUS_TEE_URL,
-});
+const zkOriginProofService = new ZKOriginProofService();
 const provenanceService = new ProvenanceService();
 /**
  * Upload capsule (memory vault)
@@ -656,15 +668,14 @@ router.post('/batch-unlock-info', walletAuth, apiKeyAuth, async (req: Request, r
       const originalNormalized = originalId.startsWith('0x') ? originalId.slice(2) : originalId;
       idMapping[normalizedIds[index]] = originalNormalized;
     });
-    
-    logger.info('🔑 ID mapping created', {
+    logger.debug('ID processing debug', {
       inputIds: capsuleIds.slice(0, 3),
       normalizedIds: normalizedIds.slice(0, 3),
       mappingSample: Object.entries(idMapping).slice(0, 3)
     });
-    
-    logger.info('🔍 Batch unlock info query', { 
-      capsuleIdsCount: capsuleIds.length, 
+
+    logger.debug('Batch unlock info query setup', {
+      capsuleIdsCount: capsuleIds.length,
       normalizedIdsCount: normalizedIds.length,
       sampleIds: capsuleIds.slice(0, 5),
       sampleNormalized: normalizedIds.slice(0, 5),
@@ -764,12 +775,12 @@ router.post('/batch-unlock-info', walletAuth, apiKeyAuth, async (req: Request, r
         }
       }
     }
-    
-    logger.info('📦 Batch unlock info results', { 
+
+    logger.info('Policy query results', {
       foundPolicies: policyRows.length,
       queriedCount: normalizedIds.length,
-      policies: policyRows.map(p => ({ 
-        capsule_id: p.capsule_id, 
+      policies: policyRows.map(p => ({
+        capsule_id: p.capsule_id,
         policy_type: p.policy_type,
         policy_data_preview: p.policy_data?.substring(0, 100)
       }))
@@ -786,10 +797,11 @@ router.post('/batch-unlock-info', walletAuth, apiKeyAuth, async (req: Request, r
         try {
           const policyData = JSON.parse(policy.policy_data);
           unlockAt = policyData.unlockAt || policyData.unlock_at;
-          logger.info('✅ Parsed policy data', { 
+
+          logger.debug('Policy parsed successfully', {
             dbCapsuleId,
             responseId,
-            unlockCondition, 
+            unlockCondition,
             unlockAt,
             hasUnlockAt: !!unlockAt,
             unlockAtDate: unlockAt ? new Date(unlockAt).toISOString() : null
@@ -804,8 +816,8 @@ router.post('/batch-unlock-info', walletAuth, apiKeyAuth, async (req: Request, r
         unlockAt,
         status: 'locked',
       };
-      
-      logger.info('📝 Added to unlockInfoMap', {
+
+      logger.debug('Added to unlockInfoMap', {
         responseId,
         unlockCondition,
         hasUnlockAt: !!unlockAt
@@ -828,11 +840,6 @@ router.post('/batch-unlock-info', walletAuth, apiKeyAuth, async (req: Request, r
       }
     }
 
-    logger.info('📤 Sending unlock info response', {
-      responseKeys: Object.keys(unlockInfoMap).slice(0, 5),
-      totalKeys: Object.keys(unlockInfoMap).length,
-      timeLockedCount: Object.values(unlockInfoMap).filter(i => i.unlockCondition === 'time').length
-    });
 
     res.json({
       success: true,
@@ -875,6 +882,7 @@ router.get('/:capsuleId/nft', async (req: Request, res: Response) => {
 router.get('/:capsuleId', cacheConfigs.capsuleMetadata, async (req: Request, res: Response) => {
   try {
     const { capsuleId } = req.params;
+    logger.debug('Capsule retrieval request', { capsuleId, url: req.url, params: req.params });
     // Try to get userAddress from various sources, but don't sanitize if it's undefined
     const rawUserAddress = req.body.userAddress || req.headers['x-user-address'] as string || req.query.userAddress as string;
     let userAddress: string | undefined;
@@ -908,10 +916,7 @@ router.get('/:capsuleId', cacheConfigs.capsuleMetadata, async (req: Request, res
       }
     }
     
-    if (!effectiveUserAddress) {
-      return res.status(400).json({ error: 'Missing userAddress and could not retrieve from database' });
-    }
-
+    // Try to get evidence - userAddress is optional now
     const evidence = await evidenceService.getEvidence(normalizedCapsuleId, effectiveUserAddress);
     logger.debug('Capsule retrieved successfully', { capsuleId, userAddress: effectiveUserAddress, fileSize: evidence.metadata.fileSize });
 

@@ -111,7 +111,7 @@ export function UploadProgressModal({ isOpen, progress, logs, onClose, onComplet
               <Upload size={20} style={{ color: colors.primary }} />
             )}
             <h3 style={{ color: colors.text, fontSize: typography.fontSize.md, margin: 0 }}>
-              {isComplete && !hasError ? 'Memory Uploaded!' : hasError ? 'Upload Failed' : 'Uploading Evidence'}
+              {isComplete && !hasError ? 'Memory Uploaded!' : hasError ? 'Upload Failed' : 'Uploading Memory'}
             </h3>
           </div>
           <button

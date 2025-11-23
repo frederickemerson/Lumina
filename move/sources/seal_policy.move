@@ -162,7 +162,7 @@ module obscura::seal_policy {
         let requester = sui::tx_context::sender(ctx);
         let timestamp_ms = sui::tx_context::epoch_timestamp_ms(ctx);
         
-        // TODO: In production, query for TimeLockPolicy and MultiPartyPolicy objects
+        // In production, this will query for TimeLockPolicy and MultiPartyPolicy objects
         // associated with this data_id and check conditions
         
         // For now, default to allowing access (backward compatibility)

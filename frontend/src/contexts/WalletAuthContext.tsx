@@ -59,18 +59,13 @@ export function WalletAuthProvider({ children }: { children: React.ReactNode }) 
     currentWallet?.features?.['sui:signPersonalMessage']?.signPersonalMessage || undefined
   );
 
-  // Update API client with signer
+  // Update API client with signer (disabled - no wallet auth required)
   useEffect(() => {
-    if (canSign) {
-      setWalletSigner(signRequestHeaders);
-    } else {
-      setWalletSigner(null);
-    }
-    
+    setWalletSigner(null);
     return () => {
       setWalletSigner(null);
     };
-  }, [canSign, signRequestHeaders]);
+  }, []);
 
   return (
     <WalletAuthContext.Provider value={{ signRequestHeaders, canSign }}>

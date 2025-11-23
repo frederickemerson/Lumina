@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { walletAuth, apiKeyAuth } from '../../middleware/auth';
+import { apiKeyAuth } from '../../middleware/auth';
 import { sanitizeAddress } from '../../utils/sanitize';
 import { getErrorMessage } from '../../types/common';
 import { logger } from '../../utils/logger';
@@ -23,7 +23,6 @@ export function createContributionsRouter(): Router {
    * POST /api/capsule/:capsuleId/contributions
    */
   router.post('/:capsuleId/contributions',
-    walletAuth,
     apiKeyAuth,
     auditLogMiddleware,
     validateParams(z.object({ capsuleId: schemas.capsuleId })),
@@ -67,7 +66,6 @@ export function createContributionsRouter(): Router {
    * GET /api/capsule/:capsuleId/contributions
    */
   router.get('/:capsuleId/contributions',
-    walletAuth,
     apiKeyAuth,
     validateParams(z.object({ capsuleId: schemas.capsuleId })),
     async (req: Request, res: Response) => {

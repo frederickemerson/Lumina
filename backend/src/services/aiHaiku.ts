@@ -1,8 +1,8 @@
 /**
  * AI Haiku Generation Service
- * Generates haikus from decrypted content using TinyLlama (on-device) or mock
+ * Generates haikus from decrypted content using mock implementation
  * 
- * In production, this would run in Nautilus TEE for privacy
+ * Future: Will use on-device AI model for privacy-preserving haiku generation
  */
 
 import { logger } from '../utils/logger';
@@ -15,19 +15,16 @@ interface HaikuOptions {
 
 /**
  * Generate a haiku from content
- * In production, this would:
- * 1. Run in Nautilus TEE for privacy
- * 2. Use TinyLlama 70M model
- * 3. Generate haiku based on content analysis
+ * Returns mock haikus based on content type
  * 
- * For now, returns mock haikus based on content type
+ * Future: Will analyze actual content using on-device AI model
  */
 export async function generateHaiku(options: HaikuOptions): Promise<string> {
   try {
     const { contentType, metadata } = options;
 
     // Mock haiku generation based on content type
-    // In production, this would analyze the actual content in TEE
+    // Future: Will analyze actual content using on-device AI model
     const haikus: Record<string, string[]> = {
       image: [
         "Tiny kick in dark, / Mother's hope in silent code — / Light breaks at dawn.",
@@ -75,31 +72,4 @@ export async function generateHaiku(options: HaikuOptions): Promise<string> {
   }
 }
 
-/**
- * Generate haiku in Nautilus TEE (mock implementation)
- * In production, this would call Nautilus TEE API
- */
-export async function generateHaikuInTEE(
-  encryptedContent: Uint8Array,
-  contentType: string
-): Promise<string> {
-  try {
-    // Mock TEE call - in production, this would:
-    // 1. Send encrypted content to Nautilus TEE
-    // 2. TEE decrypts and analyzes content
-    // 3. TEE runs TinyLlama model
-    // 4. TEE returns haiku (content never leaves TEE)
-    
-    logger.info('Generating haiku in TEE', { contentType, contentSize: encryptedContent.length });
-    
-    // Simulate TEE processing delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // For now, use mock generation
-    return await generateHaiku({ contentType: contentType as any });
-  } catch (error) {
-    logger.error('TEE haiku generation failed', { error });
-    return "Memory sealed in light, / Encrypted for future days — / Unlock when time comes.";
-  }
-}
 

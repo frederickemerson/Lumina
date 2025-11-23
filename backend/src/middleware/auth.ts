@@ -17,29 +17,11 @@ export interface AuthenticatedRequest extends Request {
 
 /**
  * API Key Authentication Middleware
- * Validates API key from header or query parameter
+ * DISABLED - No authentication required
  */
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
-  // Get API key from header or query parameter
-  const apiKey = req.headers['x-api-key'] as string || req.query.apiKey as string;
-  const expectedApiKey = process.env.API_KEY;
-
-  // If no API key configured, allow all requests (demo mode)
-  if (!expectedApiKey) {
-    // Silent mode - don't spam logs in demo mode
-    return next();
-  }
-
-  // Validate API key
-  if (!apiKey || apiKey !== expectedApiKey) {
-    res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid or missing API key',
-      details: 'Please provide a valid API key in the X-API-Key header or apiKey query parameter',
-    });
-    return;
-  }
-
+  // Authentication completely disabled - just pass through
+  (req as AuthenticatedRequest).authenticated = false;
   next();
 }
 
@@ -59,31 +41,11 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
 
 /**
  * Require authentication - stricter than apiKeyAuth
- * Always requires valid API key (no demo mode fallback)
+ * DISABLED - No authentication required
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const apiKey = req.headers['x-api-key'] as string || req.query.apiKey as string;
-  const expectedApiKey = process.env.API_KEY;
-
-  if (!expectedApiKey) {
-    res.status(503).json({
-      error: 'Service Unavailable',
-      message: 'API authentication is required but not configured',
-      details: 'Please configure API_KEY environment variable',
-    });
-    return;
-  }
-
-  if (!apiKey || apiKey !== expectedApiKey) {
-    res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid or missing API key',
-      details: 'Please provide a valid API key in the X-API-Key header or apiKey query parameter',
-    });
-    return;
-  }
-
-  (req as AuthenticatedRequest).authenticated = true;
+  // Authentication completely disabled - just pass through
+  (req as AuthenticatedRequest).authenticated = false;
   next();
 }
 

@@ -61,47 +61,8 @@ export function MemoryViewer() {
   const [aiPreview, setAiPreview] = useState<string | null>(null);
   const [inheritanceInfo, setInheritanceInfo] = useState<any>(null);
 
-  // Decode memoryId - handle comma-separated ASCII codes (current format), base64, or hex strings
-  const memoryId = rawMemoryId ? (() => {
-    try {
-      // First try URL decoding (React Router might have encoded it)
-      let decoded = rawMemoryId;
-      try {
-        decoded = decodeURIComponent(rawMemoryId);
-      } catch {
-        // If URL decoding fails, use original
-        decoded = rawMemoryId;
-      }
-      
-      // Check if it's comma-separated ASCII codes (current format)
-      if (decoded.includes(',') && /^\d+(,\d+)+$/.test(decoded)) {
-        // Convert comma-separated ASCII codes to hex string
-        const chars = decoded.split(',').map(code => String.fromCharCode(parseInt(code, 10)));
-        const hexString = chars.join('');
-        // If it's a valid hex string, add 0x prefix
-        if (/^[a-fA-F0-9]{64}$/.test(hexString)) {
-          return `0x${hexString}`;
-        }
-        return hexString;
-      }
-      
-      // Check if it's already a hex string with 0x prefix
-      if (/^0x[a-fA-F0-9]{64}$/.test(decoded)) {
-        return decoded;
-      }
-      
-      // Check if it's a hex string without 0x prefix
-      if (/^[a-fA-F0-9]{64}$/.test(decoded)) {
-        return `0x${decoded}`;
-      }
-      
-      // Otherwise, assume it's base64 and send it as-is (backend will decode it)
-      return decoded;
-    } catch {
-      // If decoding fails, use original
-      return rawMemoryId;
-    }
-  })() : null;
+  // Use memoryId directly - it should be the capsule ID as returned by the backend
+  const memoryId = rawMemoryId;
 
   useEffect(() => {
     if (memoryId) {
@@ -122,7 +83,9 @@ export function MemoryViewer() {
       
       // Get memory details - send memoryId directly to API
       // Backend's router.param will handle comma-separated ASCII codes or base64 decoding
-      const res = await apiClient.get(`/api/capsule/${memoryId}`);
+      // URL encode the memoryId to handle special characters in the path
+      const encodedMemoryId = encodeURIComponent(memoryId);
+      const res = await apiClient.get(`/api/capsule/${encodedMemoryId}`);
       if (res.data.success && res.data.capsule) {
         setMemory(res.data.capsule);
         

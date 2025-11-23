@@ -1,6 +1,9 @@
 /**
  * Location-Based Unlock Service
  * Enforces GPS-based unlock conditions
+ * 
+ * NOTE: This feature will be fully implemented in a future release.
+ * Currently, the service structure exists but frontend integration is pending.
  */
 
 import { logger } from '../utils/logger';

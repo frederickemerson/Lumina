@@ -702,22 +702,12 @@ class NFTService {
                 try {
                   // Decode UTF-8 bytes back to string (which should be the hex string)
                   const decodedString = Buffer.from(parsed.capsule_id).toString('utf8');
-                  logger.info('🔍 Attempting UTF-8 decode', {
-                    hexLength: hexFromBytes.length,
-                    decodedString,
-                    decodedLength: decodedString.length,
-                    isHex: /^[0-9a-fA-F]+$/.test(decodedString)
-                  });
+                  // Debug log removed
                   
                   // Check if decoded string is valid hex
                   if (/^[0-9a-fA-F]+$/.test(decodedString) && decodedString.length === 64) {
                     capsuleId = decodedString.toLowerCase();
-                    logger.info('✅ SUCCESS: Decoded UTF-8 encoded hex string', { 
-                      originalLength: hexFromBytes.length,
-                      decodedLength: decodedString.length,
-                      decoded: decodedString,
-                      finalCapsuleId: capsuleId
-                    });
+                    // Debug log removed
                   } else {
                     // Try alternative: maybe it's hex bytes that represent UTF-8
                     // Try converting hex pairs to bytes, then decode
@@ -732,18 +722,13 @@ class NFTService {
                       }
                     } catch (altError) {
                       // Not UTF-8 encoded hex, use as-is but log warning
-                      logger.warn('⚠️ UTF-8 decode failed - using hex as-is', {
-                        decodedString,
-                        decodedLength: decodedString.length,
-                        isHex: /^[0-9a-fA-F]+$/.test(decodedString),
-                        willUseHex: hexFromBytes.substring(0, 32) + '...'
-                      });
+                      // Debug log removed
                       capsuleId = hexFromBytes;
                     }
                   }
                 } catch (e) {
                   // Decoding failed, use hex as-is
-                  logger.warn('⚠️ UTF-8 decode error', { error: e, hexLength: hexFromBytes.length });
+                    // Debug log removed
                   capsuleId = hexFromBytes;
                 }
               } else if (hexFromBytes.length === 64) {
@@ -762,23 +747,18 @@ class NFTService {
               // Remove 0x prefix if present to match database format
               capsuleId = parsed.capsule_id.startsWith('0x') ? parsed.capsule_id.slice(2) : parsed.capsule_id;
             } else {
-              logger.warn('⚠️ Invalid capsule_id type', { type: typeof parsed.capsule_id, value: parsed.capsule_id });
+                // Debug log removed
               continue; // Skip if no valid capsule_id
             }
             
-            logger.info('🎯 Final capsule ID for NFT', {
-              nftId: parsed.nft_id,
-              capsuleId,
-              capsuleIdLength: capsuleId.length,
-              owner: parsed.owner
-            });
+            // NFT log removed
             // Get current glow intensity (use event value as fallback to avoid slow calls)
             let glowIntensity = parsed.glow_intensity || 0;
             try {
               glowIntensity = await this.getGlowIntensity(parsed.nft_id);
             } catch (glowError) {
               // Use event value if we can't fetch current glow
-              logger.debug('Using event glow intensity', { nftId: parsed.nft_id });
+                    // Debug log removed
             }
             
             // Try to get mediaBlobId from the NFT object on-chain
@@ -801,17 +781,10 @@ class NFTService {
               }
             } catch (blobError) {
               // If we can't get the blob ID, continue without it
-              logger.debug('Could not fetch mediaBlobId from NFT object', { nftId: parsed.nft_id, error: blobError });
+              // Debug log removed
             }
             
-            logger.info('✅ Adding NFT to list', { 
-              nftId: parsed.nft_id, 
-              capsuleId, 
-              capsuleIdLength: capsuleId.length,
-              owner: parsed.owner,
-              glowIntensity,
-              willBeIncluded: true
-            });
+            // NFT log removed
             
             nfts.push({
               nftId: parsed.nft_id,

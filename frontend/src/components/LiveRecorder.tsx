@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Mic, Video, Square, Play, Pause, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { colors, spacing, typography, cardStyles, buttonStyles } from '../styles/theme';
+import { logger } from '../utils/logger';
 
 interface LiveRecorderProps {
   type: 'audio' | 'video';
@@ -51,7 +52,7 @@ export function LiveRecorder({ type, onRecordingComplete, onCancel }: LiveRecord
           setHasPermission(true);
         }
       } catch (error) {
-        console.error('Error accessing media devices:', error);
+        logger.error('Error accessing media devices', { error });
         setHasPermission(false);
         toast.error('Failed to access camera/microphone. Please grant permissions.');
       }
@@ -113,7 +114,7 @@ export function LiveRecorder({ type, onRecordingComplete, onCancel }: LiveRecord
 
       toast.success('Recording started');
     } catch (error) {
-      console.error('Error starting recording:', error);
+      logger.error('Error starting recording', { error });
       toast.error('Failed to start recording');
     }
   };

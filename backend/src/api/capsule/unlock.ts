@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { walletAuth, apiKeyAuth } from '../../middleware/auth';
+import { apiKeyAuth } from '../../middleware/auth';
 import { sanitizeAddress } from '../../utils/sanitize';
 import { getErrorMessage } from '../../types/common';
 import { logger } from '../../utils/logger';
@@ -60,7 +60,6 @@ const policyService = new PolicyService({
   signer: walrusSigner,
 });
 const zkOriginProofService = new ZKOriginProofService({
-  nautilusTeeUrl: process.env.NAUTILUS_TEE_URL,
 });
 const provenanceService = new ProvenanceService();
 
@@ -72,7 +71,6 @@ export function createUnlockRouter(): Router {
    * POST /api/capsule/:capsuleId/unlock
    */
   router.post('/:capsuleId/unlock',
-    walletAuth,
     apiKeyAuth,
     auditLogMiddleware,
     validateParams(z.object({
@@ -444,7 +442,6 @@ export function createUnlockRouter(): Router {
    * POST /api/capsule/:capsuleId/generate-unlock-code
    */
   router.post('/:capsuleId/generate-unlock-code', 
-    walletAuth,
     apiKeyAuth,
     auditLogMiddleware,
     validateParams(z.object({

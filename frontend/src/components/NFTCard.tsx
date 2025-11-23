@@ -7,8 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { TentacleOrb } from './TentacleOrb';
 import { colors, spacing, typography } from '../styles/theme';
-import { encodeCapsuleIdToBase64 } from '../lib/utils';
-import { logger } from '../utils/logger';
 import { useUnlockProgress } from '../hooks/useUnlockProgress';
 import type { NFT, CapsuleUnlockInfo } from '../hooks/useNFTs';
 
@@ -70,14 +68,8 @@ export function NFTCard({ nft, unlockInfo, imageUrl, showImageError, onLockedCli
       return;
     }
 
-    try {
-      const idForEncoding = capsuleIdStr.startsWith('0x') ? capsuleIdStr : `0x${capsuleIdStr}`;
-      const encodedId = encodeCapsuleIdToBase64(idForEncoding);
-      navigate(`/memory/${encodedId}`);
-    } catch (error) {
-      logger.error('Failed to encode capsule ID', { capsuleId: capsuleIdStr }, error instanceof Error ? error : undefined);
-      navigate(`/memory/${capsuleIdStr}`);
-    }
+    // Use capsule ID directly - the backend expects the raw capsule ID
+    navigate(`/memory/${capsuleIdStr}`);
   };
 
   return (

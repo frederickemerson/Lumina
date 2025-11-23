@@ -15,7 +15,6 @@ const CSRF_TOKEN_EXPIRY = 24 * 60 * 60; // 24 hours in seconds
 interface TokenStore {
   [token: string]: {
     expiresAt: number;
-    used: boolean;
   };
 }
 
@@ -45,12 +44,12 @@ function storeToken(token: string, expiresIn: number): void {
   const expiresAt = Date.now() + expiresIn * 1000;
   tokenStore[token] = {
     expiresAt,
-    used: false,
   };
 }
 
 /**
  * Verify CSRF token
+ * Tokens can be reused until they expire (allows multiple requests with same token)
  */
 function verifyToken(token: string): boolean {
   if (!token || typeof token !== 'string') {
@@ -67,12 +66,7 @@ function verifyToken(token: string): boolean {
     return false;
   }
 
-  if (entry.used) {
-    return false;
-  }
-
-  // Mark as used
-  entry.used = true;
+  // Token is valid and not expired - allow reuse until expiry
   return true;
 }
 

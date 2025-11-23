@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { walletAuth, apiKeyAuth } from '../../middleware/auth';
+import { apiKeyAuth } from '../../middleware/auth';
 import { sanitizeAddress } from '../../utils/sanitize';
 import { getErrorMessage } from '../../types/common';
 import { logger } from '../../utils/logger';
@@ -51,7 +51,7 @@ export function createRetrieveRouter(): Router {
    * List user's capsules
    * GET /api/capsule/my-capsules
    */
-  router.get('/my-capsules', walletAuth, apiKeyAuth, async (req: Request, res: Response) => {
+  router.get('/my-capsules', apiKeyAuth, async (req: Request, res: Response) => {
     try {
       const rawUserAddress = req.headers['x-user-address'] as string || req.query.userAddress as string;
       if (!rawUserAddress) {
@@ -113,7 +113,7 @@ export function createRetrieveRouter(): Router {
    * List user's NFTs
    * GET /api/capsule/my-nfts
    */
-  router.get('/my-nfts', walletAuth, apiKeyAuth, async (req: Request, res: Response) => {
+  router.get('/my-nfts', apiKeyAuth, async (req: Request, res: Response) => {
     try {
       const rawUserAddress = req.headers['x-user-address'] as string || req.query.userAddress as string;
       if (!rawUserAddress) {
@@ -127,7 +127,7 @@ export function createRetrieveRouter(): Router {
       });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
-      logger.error('Failed to list NFTs', { error, userAddress: req.headers['x-user-address'] });
+      logger.error('Failed to list NFTs', { error });
       res.status(500).json({ error: 'Failed to list NFTs', details: errorMessage });
     }
   });
@@ -136,7 +136,7 @@ export function createRetrieveRouter(): Router {
    * Batch get capsule unlock info
    * POST /api/capsule/batch-unlock-info
    */
-  router.post('/batch-unlock-info', walletAuth, apiKeyAuth, async (req: Request, res: Response) => {
+  router.post('/batch-unlock-info', apiKeyAuth, async (req: Request, res: Response) => {
     try {
       const rawUserAddress = req.headers['x-user-address'] as string || req.query.userAddress as string;
       if (!rawUserAddress) {
@@ -224,7 +224,7 @@ export function createRetrieveRouter(): Router {
       });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
-      logger.error('Failed to get NFT', { error, capsuleId: req.params.capsuleId });
+      logger.error('Failed to get NFT', { error });
       res.status(500).json({ error: 'Failed to get NFT', details: errorMessage });
     }
   });
@@ -247,7 +247,12 @@ export function createRetrieveRouter(): Router {
         }
       }
       
-      const normalizedCapsuleId = capsuleId.startsWith('0x') ? capsuleId.slice(2) : capsuleId;
+      // Normalize capsuleId - remove 0x prefix for database query (database stores without prefix)
+      // The router.param should have already decoded it, but handle both cases
+      let normalizedCapsuleId = capsuleId;
+      if (capsuleId.startsWith('0x')) {
+        normalizedCapsuleId = capsuleId.slice(2);
+      }
       
       let effectiveUserAddress = userAddress;
       if (!effectiveUserAddress) {
@@ -261,10 +266,14 @@ export function createRetrieveRouter(): Router {
         }
       }
       
-      if (!effectiveUserAddress) {
-        return res.status(400).json({ error: 'Missing userAddress and could not retrieve from database' });
-      }
-
+      // Log for debugging
+      logger.debug('Retrieving capsule', { 
+        originalCapsuleId: capsuleId, 
+        normalizedCapsuleId,
+        userAddress: effectiveUserAddress || 'not provided'
+      });
+      
+      // userAddress is optional - if not provided, getEvidence will just use vaultId
       const evidence = await evidenceService.getEvidence(normalizedCapsuleId, effectiveUserAddress);
 
       const db = getDatabase();
@@ -278,7 +287,7 @@ export function createRetrieveRouter(): Router {
           nftId = nftRows[0].nft_id;
         }
       } catch (nftError) {
-        logger.warn('Could not retrieve NFT ID', { error: nftError, capsuleId: normalizedCapsuleId });
+        // NFT retrieval failed - non-critical
       }
 
       let unlockAt: number | undefined;

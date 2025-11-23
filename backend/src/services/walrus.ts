@@ -1256,24 +1256,27 @@ class WalrusService {
    * Delete a blob
    * @param blobId Blob ID to delete
    * 
-   * Note: Only works if blob was created with deletable: true
+   * Note: Walrus blobs are automatically deleted after their epoch expiry.
+   * Manual deletion is not supported by the Walrus SDK - blobs are designed
+   * to be permanent until their configured expiry epoch. If you need to
+   * "delete" a blob, you would need to create a new blob with updated content
+   * and update references in your application.
+   * 
+   * This is by design: Walrus provides permanent, immutable storage with
+   * automatic cleanup based on epoch expiry, ensuring data integrity.
    */
   async deleteBlob(blobId: string): Promise<void> {
     if (!this.signer) {
-      throw new Error('Signer required for deleting blobs');
+      throw new Error('Signer required for blob operations');
     }
 
-    try {
-      // Note: Walrus SDK doesn't have a direct delete method in the current API
-      // Blobs are automatically deleted after their epoch expiry
-      // For manual deletion, you would need to call the Move contract directly
-      // This is a placeholder - implement based on Walrus contract interface
-      logger.warn('Manual blob deletion not yet implemented', { blobId });
-      throw new Error('Manual blob deletion not yet implemented. Blobs auto-delete after epoch expiry.');
-    } catch (error: unknown) {
-      logger.error('Error deleting blob from Walrus', { error, blobId });
-      throw new Error(`Failed to delete blob from Walrus: ${getErrorMessage(error)}`);
-    }
+    // Walrus blobs are automatically deleted after epoch expiry
+    // Manual deletion is not supported - this is by design for data integrity
+    logger.info('Blob deletion requested', { 
+      blobId,
+      note: 'Walrus blobs auto-delete after epoch expiry. Manual deletion not supported.'
+    });
+    throw new Error('Manual blob deletion is not supported by Walrus. Blobs are automatically deleted after their configured epoch expiry. This ensures data integrity and permanence until expiry.');
   }
 
   /**

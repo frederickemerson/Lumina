@@ -12,6 +12,7 @@ import { ARButton, XR, useXR } from '@react-three/xr';
 // import { OrbitControls } from '@react-three/drei';
 import { Mesh, MeshStandardMaterial } from 'three';
 import { QRScanner } from './QRScanner';
+import { logger } from '../utils/logger';
 
 interface ARViewerProps {
   capsuleId: string;
@@ -62,7 +63,7 @@ export function ARViewer({ capsuleId, onClose }: ARViewerProps) {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('AR WebSocket connected', { capsuleId });
+      logger.info('AR WebSocket connected', { capsuleId });
     };
 
     ws.onmessage = (event) => {
@@ -80,12 +81,12 @@ export function ARViewer({ capsuleId, onClose }: ARViewerProps) {
           });
         }
       } catch (error) {
-        console.error('Error handling AR WebSocket message', error);
+        logger.error('Error handling AR WebSocket message', { error });
       }
     };
 
     ws.onerror = (error) => {
-      console.error('AR WebSocket error', error);
+      logger.error('AR WebSocket error', { error });
     };
 
     return () => {
@@ -398,7 +399,7 @@ function AROrbMesh({
             );
           }
         } catch (error) {
-          console.error('Error creating spatial anchor', error);
+          logger.error('Error creating spatial anchor', { error });
         }
       };
       createAnchor();

@@ -12,7 +12,6 @@ export enum ErrorCode {
   WALRUS_ERROR = 'WALRUS_ERROR',
   SEAL_ERROR = 'SEAL_ERROR',
   ZK_ERROR = 'ZK_ERROR',
-  NAUTILUS_ERROR = 'NAUTILUS_ERROR',
   
   // Validation errors (400-499)
   VALIDATION_ERROR = 'VALIDATION_ERROR',
@@ -169,7 +168,6 @@ function getServiceErrorCode(service: string): ErrorCode {
   if (serviceUpper.includes('WALRUS')) return ErrorCode.WALRUS_ERROR;
   if (serviceUpper.includes('SEAL')) return ErrorCode.SEAL_ERROR;
   if (serviceUpper.includes('ZK') || serviceUpper.includes('PROOF')) return ErrorCode.ZK_ERROR;
-  if (serviceUpper.includes('NAUTILUS') || serviceUpper.includes('TEE')) return ErrorCode.NAUTILUS_ERROR;
   return ErrorCode.SERVICE_ERROR;
 }
 

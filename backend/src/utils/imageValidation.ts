@@ -101,8 +101,14 @@ export function validateFileByMagicNumber(
     return { valid: true, detectedMimeType: detected };
   }
 
-  // WebM: 1A 45 DF A3
+  // WebM: 1A 45 DF A3 (can contain video, audio, or both)
   if (bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+    // WebM containers can contain audio-only, video-only, or both
+    // Accept video/webm detection for audio/webm declarations since WebM is a container format
+    if (declaredMimeType === 'audio/webm') {
+      return { valid: true, detectedMimeType: 'audio/webm' };
+    }
+
     const detected = 'video/webm';
     if (declaredMimeType.startsWith('video/') && !declaredMimeType.includes('webm')) {
       logger.warn('MIME type mismatch', { declared: declaredMimeType, detected });
@@ -185,18 +191,17 @@ export function validateFileByMagicNumber(
   }
 
   // If we can't detect the format but declared MIME type is in allowed list, allow it
-  // (some formats may not have easily detectable magic numbers)
-  const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
-  const allowedAudioTypes = ['audio/mpeg', 'audio/wav', 'audio/webm'];
-  const allowedOtherTypes = ['application/pdf', 'text/plain', 'application/json'];
+  // For Lumina, we trust any declared MIME type since we want to support preserving any memory/file
+  // Magic number validation is mainly for detecting obviously corrupted files
+  logger.info('File type not recognized by magic bytes, accepting declared MIME type', {
+    declaredMimeType,
+    header: Array.from(bytes.slice(0, 16))
+      .map(b => '0x' + b.toString(16).padStart(2, '0'))
+      .join(' '),
+    dataSize: bytes.length,
+  });
 
-  if ([...allowedImageTypes, ...allowedVideoTypes, ...allowedAudioTypes, ...allowedOtherTypes].includes(declaredMimeType)) {
-    logger.warn('Could not verify file signature, trusting declared MIME type', { declaredMimeType });
-    return { valid: true, detectedMimeType: declaredMimeType };
-  }
-
-  return { valid: false, error: 'File signature does not match declared MIME type or unsupported format' };
+  return { valid: true, detectedMimeType: declaredMimeType };
 }
 
 /**

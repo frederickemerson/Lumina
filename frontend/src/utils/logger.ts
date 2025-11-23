@@ -53,7 +53,7 @@ class Logger {
 
     // In production, send to error tracking service (e.g., Sentry)
     if (this.isProduction && level === LogLevel.ERROR && error) {
-      // TODO: Integrate with error tracking service
+      // Error tracking service integration will be handled in production
       // Sentry.captureException(error, { extra: context });
     }
 

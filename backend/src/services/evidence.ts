@@ -273,13 +273,27 @@ class EvidenceService {
   /**
    * Get evidence metadata (encrypted data remains encrypted)
    */
-  async getEvidence(vaultId: string, userAddress: string): Promise<EvidenceData> {
+  async getEvidence(vaultId: string, userAddress?: string): Promise<EvidenceData> {
     try {
-      logger.info('Getting evidence from database', { vaultId, userAddress });
-      const [vaultRows] = await this.db.execute(
-        'SELECT * FROM evidence_vaults WHERE vault_id = ? AND user_address = ?',
-        [vaultId, userAddress]
-      ) as [any[], any];
+      // Normalize vaultId - remove 0x prefix if present (database stores without prefix)
+      const normalizedVaultId = vaultId.startsWith('0x') ? vaultId.slice(2) : vaultId;
+      
+      logger.info('Getting evidence', { vaultId: normalizedVaultId });
+      
+      // If userAddress is provided, use it for filtering; otherwise just get by vaultId
+      let vaultRows: any[];
+      if (userAddress) {
+        [vaultRows] = await this.db.execute(
+          'SELECT * FROM evidence_vaults WHERE vault_id = ? AND user_address = ?',
+          [normalizedVaultId, userAddress]
+        ) as [any[], any];
+      } else {
+        // If no userAddress provided, just get by vaultId (for viewing memories)
+        [vaultRows] = await this.db.execute(
+          'SELECT * FROM evidence_vaults WHERE vault_id = ?',
+          [normalizedVaultId]
+        ) as [any[], any];
+      }
 
       const vault = vaultRows[0] as {
         vault_id: string;
@@ -295,8 +309,8 @@ class EvidenceService {
       } | undefined;
 
       if (!vault) {
-        logger.warn('Vault not found or access denied', { vaultId, userAddress });
-        throw new Error('Vault not found or access denied');
+        logger.warn('Vault not found', { vaultId: normalizedVaultId });
+        throw new Error('Vault not found');
       }
 
       logger.info('Vault found, retrieving blob from Walrus', { vaultId, blobId: vault.blob_id, fileSize: vault.file_size });

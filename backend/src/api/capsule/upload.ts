@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { walletAuth, apiKeyAuth } from '../../middleware/auth';
+import { apiKeyAuth } from '../../middleware/auth';
 import { sanitizeAddress } from '../../utils/sanitize';
 import { getErrorMessage } from '../../types/common';
 import { logger } from '../../utils/logger';
@@ -29,17 +29,9 @@ const upload = multer({
     fileSize: 1024 * 1024 * 1024, // 1GB max
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-      'video/mp4', 'video/webm', 'video/quicktime',
-      'audio/mpeg', 'audio/wav', 'audio/webm',
-      'application/pdf', 'text/plain', 'application/json',
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Allowed: images, videos, audio, PDF, text, JSON'));
-    }
+    // Allow all file types - Lumina supports preserving any memory
+    // Magic number validation will catch malformed files later
+    cb(null, true);
   },
 });
 
@@ -86,7 +78,6 @@ export function createUploadRouter(): Router {
    * POST /api/capsule/upload
    */
   router.post('/upload',
-    walletAuth,
     apiKeyAuth,
     uploadLimiter,
     auditLogMiddleware,
@@ -278,7 +269,7 @@ export function createUploadRouter(): Router {
             );
             nftId = minted.nftId;
           } catch (nftError) {
-            logger.warn('NFT minting failed', { error: nftError, capsuleId: uploadResult.vaultId });
+            // NFT minting failed - non-critical
           }
         }
 
@@ -310,7 +301,6 @@ export function createUploadRouter(): Router {
    * POST /api/capsule/upload-voice
    */
   router.post('/upload-voice',
-    walletAuth,
     apiKeyAuth,
     uploadLimiter,
     upload.single('file'),
@@ -327,7 +317,12 @@ export function createUploadRouter(): Router {
 
         // Validate file by magic number
         const fileValidation = validateFileByMagicNumber(req.file.buffer, req.file.mimetype);
-        if (!fileValidation.valid || !fileValidation.detectedMimeType?.startsWith('audio/')) {
+        const isValidAudio = fileValidation.valid && (
+          fileValidation.detectedMimeType?.startsWith('audio/') ||
+          (fileValidation.detectedMimeType === 'video/webm' && req.file.mimetype === 'audio/webm')
+        );
+
+        if (!isValidAudio) {
           logger.warn('Invalid audio file', {
             declaredMimeType: req.file.mimetype,
             detectedMimeType: fileValidation.detectedMimeType,

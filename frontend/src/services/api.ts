@@ -21,20 +21,27 @@ const apiClient: AxiosInstance = axios.create({
   withCredentials: true, // Include cookies for CSRF token
 });
 
-// Store wallet signing function (set by WalletAuthProvider)
-let walletSigner: ((method: string, path: string) => Promise<Record<string, string> | null>) | null = null;
+// Wallet auth disabled - no signing required
 
 // CSRF token cache
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 
 /**
- * Set wallet signer function (called by WalletAuthProvider)
+ * Invalidate CSRF token cache (call after successful state-changing request)
+ */
+function invalidateCsrfToken(): void {
+  csrfToken = null;
+  csrfTokenPromise = null;
+}
+
+/**
+ * Set wallet signer function (disabled - no wallet auth required)
  */
 export function setWalletSigner(
-  signer: ((method: string, path: string) => Promise<Record<string, string> | null>) | null
+  _signer: ((method: string, path: string) => Promise<Record<string, string> | null>) | null
 ) {
-  walletSigner = signer;
+  // Wallet auth disabled - no-op
 }
 
 /**
@@ -89,30 +96,6 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Add wallet signature if signer is available and this is an authenticated endpoint
-    // Skip signing for public endpoints (e.g., /public/unlock)
-    if (walletSigner && !config.url?.includes('/public/')) {
-      try {
-        const method = config.method?.toUpperCase() || 'GET';
-        const path = config.url || '/';
-        const signedHeaders = await walletSigner(method, path);
-        
-        if (signedHeaders) {
-          Object.assign(config.headers, signedHeaders);
-        }
-      } catch (error) {
-        // If signing fails, log the error and continue without signature (will fail auth on backend)
-        const method = config.method?.toUpperCase() || 'GET';
-        const path = config.url || '/';
-        console.error('Failed to sign request', {
-          error,
-          method,
-          path,
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-        });
-      }
-    }
 
     return config;
   },
@@ -125,8 +108,24 @@ apiClient.interceptors.request.use(
  * Response interceptor - handle errors consistently
  */
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Invalidate CSRF token after successful state-changing requests
+    // This ensures we get a fresh token for the next request
+    const method = response.config.method?.toUpperCase();
+    if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      invalidateCsrfToken();
+    }
+    return response;
+  },
   (error: AxiosError<ApiErrorResponse>) => {
+    // If CSRF token error, invalidate cache and allow retry
+    if (error.response?.status === 403) {
+      const errorData = error.response?.data;
+      if (errorData?.message?.includes('CSRF')) {
+        invalidateCsrfToken();
+      }
+    }
+    
     // Extract error message from response
     const errorData = error.response?.data;
     const errorMessage = errorData?.error || errorData?.message || error.message || 'Unknown error';
