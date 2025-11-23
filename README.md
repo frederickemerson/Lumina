@@ -395,10 +395,6 @@ We welcome contributions! Please:
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
-
-[Your License Here]
-
 ## 🙏 Acknowledgments
 
 - **Walrus** - Decentralized storage infrastructure
@@ -450,17 +446,6 @@ We welcome contributions! Please:
 - **Zero-Knowledge Search**: Search encrypted memories without revealing content
 - **Memory Provenance**: Advanced provenance tracking with ZK proofs
 - **Interoperability**: Standards for memory portability
-
-## 📞 Support
-
-- **Documentation**: [Link to docs]
-- **Discord**: [Discord server]
-- **Twitter**: [@LuminaApp]
-- **Email**: support@lumina.app
-
-## 🎯 Roadmap
-
-See our [GitHub Projects](https://github.com/your-org/lumina/projects) for detailed roadmap and milestones.
 
 ---
 
