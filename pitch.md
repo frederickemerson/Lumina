@@ -10,7 +10,7 @@ We all have precious memories we want to preserve forever - photos of loved ones
 
 ### How It Works
 
-1. **Upload & Encrypt**: Upload photos, videos, or voice recordings. Your memories are encrypted using Lit Protocol's threshold encryption before being stored on Walrus decentralized storage.
+1. **Upload & Encrypt**: Upload photos, videos, or voice recordings. Your memories are encrypted using Seal Protocol's threshold encryption before being stored on Walrus decentralized storage.
 
 2. **Set Conditions**: Choose when your memory unlocks:
    - **Time-Locked**: Unlock on a specific future date
@@ -26,7 +26,7 @@ We all have precious memories we want to preserve forever - photos of loved ones
 ## Key Features
 
 ### 🔒 **True Privacy**
-- End-to-end encryption using Lit Protocol
+- End-to-end encryption using Seal Protocol
 - Decentralized storage on Walrus
 - No central authority can access your memories
 - You control the keys
@@ -63,7 +63,7 @@ We all have precious memories we want to preserve forever - photos of loved ones
 
 - **Blockchain**: Sui Network (fast, scalable, low-cost)
 - **Storage**: Walrus (decentralized, permanent)
-- **Encryption**: Lit Protocol (threshold encryption)
+- **Encryption**: Seal Protocol (threshold encryption)
 - **Smart Contracts**: Move language
 - **Frontend**: React + TypeScript
 

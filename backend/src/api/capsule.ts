@@ -1,7 +1,7 @@
 /**
  * Capsule API Endpoints
  * Handles LUMINA capsule creation, retrieval, unlock, and NFT minting
- * using Lit-style AES-GCM encryption and Walrus storage.
+ * using Seal Protocol threshold encryption and Walrus storage.
  */
 
 import 'dotenv/config';

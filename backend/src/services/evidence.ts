@@ -3,7 +3,7 @@
  * Handles anonymous evidence uploads with encryption and Walrus storage
  * 
  * Uses:
- * - Lit-style AES-GCM encryption service with wrapped keys
+ * - Seal Protocol threshold encryption service
  * - Walrus SDK for immutable blob storage
  * - snappy for compression
  */

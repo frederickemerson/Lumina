@@ -6,7 +6,7 @@ Lumina is a decentralized platform for creating time-locked memory capsules. Upl
 
 ## Features
 
-- **Encrypted Storage**: Memories are encrypted using Lit Protocol before being stored on Walrus decentralized storage
+- **Encrypted Storage**: Memories are encrypted using Seal Protocol before being stored on Walrus decentralized storage
 - **Time-Locked Capsules**: Set a future date when your memory will unlock
 - **Manual Unlock**: Instant access to your memories anytime
 - **Inheritance**: Configure inheritance policies so loved ones can access your memories if you become inactive
@@ -20,7 +20,7 @@ Lumina is a decentralized platform for creating time-locked memory capsules. Upl
 - **Backend**: Node.js + Express + TypeScript
 - **Blockchain**: Sui Network
 - **Storage**: Walrus (decentralized storage)
-- **Encryption**: Lit Protocol (threshold encryption)
+- **Encryption**: Seal Protocol (threshold encryption)
 - **Database**: MySQL
 - **Smart Contracts**: Move language on Sui
 
@@ -51,17 +51,16 @@ cd ../backend && npm install
 3. Set up environment variables:
 ```bash
 # Backend
-cp backend/lit.env.sample backend/.env
 cp backend/seal.env.sample backend/.env
 
 # Frontend
-cp frontend/lit.env.sample frontend/.env
+cp frontend/.env.sample frontend/.env
 ```
 
 4. Configure your `.env` files with:
    - Sui network RPC endpoints
    - Walrus storage credentials
-   - Lit Protocol keys
+   - Seal Protocol keys
    - MySQL database connection
    - API keys
 
