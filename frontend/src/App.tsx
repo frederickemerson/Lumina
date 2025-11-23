@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { WalletButton } from './components/WalletButton';
 import { LandingPage } from './components/LandingPage';
 import { Onboarding } from './components/Onboarding';
+import { Logo } from './components/Logo';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { useLumina } from './hooks/useLumina';
 import { spacing } from './styles/theme';
@@ -143,15 +144,7 @@ function AppContent() {
             justifyContent: 'space-between',
             height: '48px'
           }}>
-            <div style={{ 
-              fontSize: '16px', 
-              fontWeight: 300, 
-              color: '#fff',
-              letterSpacing: '0.15em',
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif',
-            }}>
-              LUMINA
-            </div>
+            <Logo size={32} showText={true} />
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
               <WalletButton />
             </div>
@@ -173,10 +166,18 @@ function AppContent() {
               borderBottom: '1px solid #1a1a1a',
               position: 'relative',
             }}>
-              <TabsList>
-                <TabsTrigger value="create" style={{ fontSize: '13px', padding: '8px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif', fontWeight: 500 }}>Add Memory</TabsTrigger>
-                <TabsTrigger value="nfts" style={{ fontSize: '13px', padding: '8px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif', fontWeight: 500 }}>My Vault</TabsTrigger>
-              </TabsList>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px',
+              }}>
+                <Logo size={24} showText={false} />
+                <TabsList>
+                  <TabsTrigger value="create" style={{ fontSize: '13px', padding: '8px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif', fontWeight: 500 }}>Add Memory</TabsTrigger>
+                  <TabsTrigger value="nfts" style={{ fontSize: '13px', padding: '8px 16px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif', fontWeight: 500 }}>My Vault</TabsTrigger>
+                </TabsList>
+              </div>
               <div
                 style={{
                   marginTop: '12px',

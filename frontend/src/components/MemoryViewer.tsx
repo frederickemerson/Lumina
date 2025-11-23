@@ -10,6 +10,7 @@ import { colors, spacing, typography, borderRadius, cardStyles, buttonStyles } f
 import { ExternalLink, Image as ImageIcon, Lock, Unlock, Calendar, Clock, MessageSquare, Mic, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CapsuleOrb } from './CapsuleOrb';
+import { Logo } from './Logo';
 import { useLumina } from '../hooks/useLumina';
 import { InheritanceClaim } from './InheritanceClaim';
 import { logger } from '../utils/logger';
@@ -317,6 +318,7 @@ export function MemoryViewer() {
               >
                 <ArrowLeft size={20} />
               </button>
+              <Logo size={28} showText={false} />
               <h1 style={{
                 fontSize: typography.fontSize['2xl'],
                 fontWeight: typography.fontWeight.bold,
